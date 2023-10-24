@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"net"
 	"os"
-	"os/exec"
+	"strings"
 
-	"github.com/cli/safeexec"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 type SshKeyOptions struct {
@@ -31,52 +34,51 @@ func init() {
 }
 
 func ensure(opts *SshKeyOptions) error {
-	fmt.Println("sshkey called")
-	err := resetSshAgent()
-	if err != nil {
-		return err
+	sshAuthSock := os.Getenv("SSH_AUTH_SOCK")
+	if sshAuthSock == "" {
+		// no ssh agent
+		fmt.Println("SSH_AUTH_SOCK is not set. SSH agent won't be used.")
+	} else {
+		err := resetSshAgent(sshAuthSock)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-// printf "\nRemoving these existing identities:\n"
-// ssh-add -l
-// ssh-add -D
-// printf "\n"
-
-func resetSshAgent() error {
+func resetSshAgent(sshAuthSock string) error {
 	// in case ssh-agent has loaded incorrect keys, lets start afresh
 
-	sshAdd, err := safeexec.LookPath("ssh-add")
+	// Connect to the SSH agent using the SSH_AUTH_SOCK socket
+	agentConn, err := net.Dial("unix", sshAuthSock)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to the SSH agent: %v", err)
+	}
+	defer agentConn.Close()
+	sshAgent := agent.NewClient(agentConn)
+
+	identities, err := sshAgent.List()
+	if err != nil {
+		return fmt.Errorf("failed to list SSH agent identities: %v", err)
 	}
 
-	fmt.Println("Removing these existing identities")
-
-	cmd := exec.Command(sshAdd, "-l")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if exitError.ExitCode() != 1 {
-				return err
-			}
-			// exit status = 1 can mean no keys loaded, so we ignore this
+	if len(identities) == 0 {
+		fmt.Println("No identities loaded into SSH agent.")
+	} else {
+		fmt.Println("Removing these existing identities:")
+		for _, identity := range identities {
+			fmt.Printf("%s %s %s\n", identity.Comment, fingerprintSHA256(identity.Blob), identity.Format)
 		}
-		return err
 	}
 
-	cmd = exec.Command(sshAdd, "-D")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	fmt.Println()
+	sshAgent.RemoveAll()
 
 	return nil
+}
+
+func fingerprintSHA256(blob []byte) string {
+	sha256sum := sha256.Sum256(blob)
+	hash := base64.StdEncoding.EncodeToString(sha256sum[:])
+	return "SHA256:" + strings.TrimRight(hash, "=")
 }
