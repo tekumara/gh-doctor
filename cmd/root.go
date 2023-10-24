@@ -32,6 +32,8 @@ func Execute() {
 func init() {
 	// don't use -h shorthand for help because we use it for hostname elsewhere
 	rootCmd.PersistentFlags().Bool("help", false, "Show help for command")
+	// don't display usage on error
+	rootCmd.SilenceUsage = true
 }
 
 
