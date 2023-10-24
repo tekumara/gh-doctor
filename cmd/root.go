@@ -34,6 +34,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("help", false, "Show help for command")
 	// don't display usage on error
 	rootCmd.SilenceUsage = true
+	//rootCmd.SilenceErrors = true
 }
 
 

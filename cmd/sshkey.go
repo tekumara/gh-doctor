@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -39,17 +40,21 @@ func ensure(opts *SshKeyOptions) error {
 		// no ssh agent
 		fmt.Println("SSH_AUTH_SOCK is not set. SSH agent won't be used.")
 	} else {
-		err := resetSshAgent(sshAuthSock)
+		// in case ssh-agent has loaded incorrect keys, lets start afresh
+		err := removeSshAgentIdentities(sshAuthSock)
 		if err != nil {
 			return err
 		}
 	}
+
+	_, err := authGitHub(opts.Hostname)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func resetSshAgent(sshAuthSock string) error {
-	// in case ssh-agent has loaded incorrect keys, lets start afresh
-
+func removeSshAgentIdentities(sshAuthSock string) error {
 	// Connect to the SSH agent using the SSH_AUTH_SOCK socket
 	agentConn, err := net.Dial("unix", sshAuthSock)
 	if err != nil {
@@ -77,8 +82,35 @@ func resetSshAgent(sshAuthSock string) error {
 	return nil
 }
 
+// Unpadded base64 encoding of sha256 hash of the public key.
+// Adapted from https://github.com/golang/crypto/blob/cf8dcb0f7d1e4e345ca9df755538650a5e9eb47c/ssh/keys.go#L1713
 func fingerprintSHA256(blob []byte) string {
 	sha256sum := sha256.Sum256(blob)
 	hash := base64.StdEncoding.EncodeToString(sha256sum[:])
-	return "SHA256:" + strings.TrimRight(hash, "=")
+	return "SHA256:" + hash
+}
+
+// Authenticate to github using ssh.
+// Returns
+// true, nil = success
+// false, nil = permission denied
+// false, error = timeout, can't resolve hostname etc.
+func authGitHub(hostname string) (bool, error) {
+
+	fmt.Printf("Authenticating to %s...\n\n", hostname)
+
+	// exec ssh rather than using the golang ssh client to mimic git and ensure we are using ~/.ssh/config
+	cmd := exec.Command("ssh", "-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=2", "git@"+hostname)
+
+	out, err := cmd.CombinedOutput()
+	sout := string(out)
+	fmt.Println(sout)
+
+	if strings.Contains(sout, "Permission denied") {
+		return false, nil
+	}
+	if strings.Contains(sout, "successfully authenticated") {
+		return true, nil
+	}
+	return false, err
 }
