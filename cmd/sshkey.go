@@ -18,29 +18,34 @@ import (
 type SshKeyOptions struct {
 	Hostname string
 	KeyFile  string
+	Rotate   bool
 }
 
-var opts = &SshKeyOptions{}
+var sshKeyOpts = &SshKeyOptions{}
 
 var sshkeyCmd = &cobra.Command{
 	Use:   "ssh-key",
 	Short: "Ensure a working ssh key.",
-	Long:  `Tests the ssh key is working, creating and adding one to your Github user if needed.`,
+	Long:  `Test the ssh key is working.
+
+Creates and adds a ssh key to your Github user if needed.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if opts.KeyFile == "~/.ssh/[hostname]" {
-			opts.KeyFile = "~/.ssh/" + opts.Hostname
+		if sshKeyOpts.KeyFile == "~/.ssh/[hostname]" {
+			sshKeyOpts.KeyFile = "~/.ssh/" + sshKeyOpts.Hostname
 		}
-		return ensure(opts)
+		return ensureSshKey(sshKeyOpts)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(sshkeyCmd)
-	sshkeyCmd.Flags().StringVarP(&opts.Hostname, "hostname", "h", "github.com", "Github hostname")
-	sshkeyCmd.Flags().StringVarP(&opts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
+	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.Hostname, "hostname", "h", "github.com", "Github hostname")
+	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
+	sshkeyCmd.Flags().BoolVarP(&sshKeyOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
+
 }
 
-func ensure(opts *SshKeyOptions) error {
+func ensureSshKey(opts *SshKeyOptions) error {
 	sshAuthSock := os.Getenv("SSH_AUTH_SOCK")
 	if sshAuthSock == "" {
 		// no ssh agent
@@ -52,25 +57,34 @@ func ensure(opts *SshKeyOptions) error {
 		}
 	}
 
-	// TODO: support rotation
-
-	authed, err := ensureSshAuth(opts.Hostname)
-	if err != nil {
-		return err
-	}
-	if authed {
-		return nil
-	}
-
-	if err := ensureKeyFileExists(opts.KeyFile, opts.Hostname); err != nil {
-		return err
+	if !opts.Rotate {
+		authed, err := ensureSshAuth(opts.Hostname)
+		if err != nil {
+			return err
+		}
+		// if authed exit early
+		if authed {
+			return nil
+		}
 	}
 
 	client, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname})
 	if err != nil {
+		if strings.Contains(err.Error(), "authentication token not found") {
+			return fmt.Errorf("%s\n  To fix run: gh doctor auth -h %s", err.Error(), opts.Hostname)
+		}
+
 		return err
 	}
-	ensureGhAuth(client, opts.Hostname)
+	if err = ensureGhAuth(client, opts.Hostname); err != nil {
+		return err
+	}
+
+	// TODO: delete file if exists and rotating
+
+	if err := ensureKeyFileExists(opts.KeyFile, opts.Hostname); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -175,27 +189,4 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 		fmt.Print(string(out))
 		return err
 	}
-}
-
-//# request scopes needed to manage ssh keys
-//GH_PROMPT_DISABLED=1 gh auth login -h "$github_host" -p ssh -s admin:public_key -s admin:ssh_signing_key
-
-func ensureGhAuth(client *api.RESTClient, hostname string) error {
-	username, err := GetAuthenticatedUser(client)
-	if err != nil {
-		//addMsg("%s %s: api call failed: %s", cs.Red("X"), hostname, err)
-		return err
-	}
-
-	fmt.Printf("✓ Authenticated to %s as %s using gh token\n", hostname, username)
-	return nil
-}
-
-func GetAuthenticatedUser(client *api.RESTClient) (string, error) {
-	var response struct {
-		Login string
-	}
-
-	err := client.Get("user", &response)
-	return response.Login, err
 }
