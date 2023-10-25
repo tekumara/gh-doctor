@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -54,15 +53,14 @@ func ensure(opts *SshKeyOptions) error {
 
 	// TODO: support rotation
 
-	// authed, err := authGitHub(opts.Hostname)
-	// if err != nil {
-	// 	return err
-	// }
-	// if authed {
-	// 	return nil
-	// }
+	authed, err := ensureSshAuth(opts.Hostname)
+	if err != nil {
+		return err
+	}
+	if authed {
+		return nil
+	}
 
-	//fmt.Println()
 	if err := ensureKeyFileExists(opts.KeyFile, opts.Hostname); err != nil {
 		return err
 	}
@@ -94,45 +92,40 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 		fmt.Println("ℹ No identities present in SSH agent.")
 	} else {
 		fmt.Println("ℹ Removing existing identities from SSH agent.")
-		// for _, identity := range identities {
-		// 	fmt.Printf("  %s %s (%s)\n", fingerprintSHA256(identity.Blob), identity.Comment, identity.Format)
-		// }
 		sshAgent.RemoveAll()
 	}
 
 	return nil
 }
 
-// Unpadded base64 encoding of sha256 hash of the public key.
-// Adapted from https://github.com/golang/crypto/blob/cf8dcb0f7d1e4e345ca9df755538650a5e9eb47c/ssh/keys.go#L1713
-func fingerprintSHA256(blob []byte) string {
-	sha256sum := sha256.Sum256(blob)
-	hash := base64.StdEncoding.EncodeToString(sha256sum[:])
-	return "SHA256:" + hash
-}
+var regexSshSuccess = regexp.MustCompile(`Hi (.*)! You've successfully authenticated`)
 
 // Authenticate to github using ssh.
 // Returns
 // true, nil = success
 // false, nil = permission denied
 // false, error = timeout, can't resolve hostname etc.
-func authGitHub(hostname string) (bool, error) {
-
-	fmt.Printf("Authenticating to %s...\n\n", hostname)
+func ensureSshAuth(hostname string) (bool, error) {
 
 	// exec ssh rather than using the golang ssh client to mimic git and ensure we are using ~/.ssh/config
 	cmd := exec.Command("ssh", "-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=2", "git@"+hostname)
 
 	out, err := cmd.CombinedOutput()
 	sout := string(out)
-	fmt.Println(sout)
 
 	if strings.Contains(sout, "Permission denied") {
+		fmt.Printf("X Cannot authenticate to %s via ssh\n", hostname)
 		return false, nil
 	}
-	if strings.Contains(sout, "successfully authenticated") {
+
+	matches := regexSshSuccess.FindStringSubmatch(sout)
+	if len(matches) > 0 {
+		username := matches[1]
+		fmt.Printf("✓ Authenticated to %s as %s via ssh\n", hostname, username)
 		return true, nil
 	}
+
+	fmt.Println(sout)
 	return false, err
 }
 
@@ -181,7 +174,7 @@ func ensureGhAuth(client *api.RESTClient, hostname string) error {
 		return err
 	}
 
-	fmt.Printf("✓ Logged in to %s as %s\n", hostname, username)
+	fmt.Printf("✓ Authenticated to %s as %s using gh token\n", hostname, username)
 	return nil
 }
 
