@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -25,6 +26,9 @@ var sshkeyCmd = &cobra.Command{
 	Short: "Ensure a working ssh key.",
 	Long:  `Tests the ssh key is working, creating and adding one to your Github user if needed.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if opts.KeyFile == "~/.ssh/[hostname]" {
+			opts.KeyFile = "~/.ssh/" + opts.Hostname
+		}
 		return ensure(opts)
 	},
 }
@@ -32,6 +36,7 @@ var sshkeyCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(sshkeyCmd)
 	sshkeyCmd.Flags().StringVarP(&opts.Hostname, "hostname", "h", "github.com", "Github hostname")
+	sshkeyCmd.Flags().StringVarP(&opts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
 }
 
 func ensure(opts *SshKeyOptions) error {
@@ -41,16 +46,26 @@ func ensure(opts *SshKeyOptions) error {
 		fmt.Println("SSH_AUTH_SOCK is not set. SSH agent won't be used.")
 	} else {
 		// in case ssh-agent has loaded incorrect keys, lets start afresh
-		err := removeSshAgentIdentities(sshAuthSock)
-		if err != nil {
+		if err := removeSshAgentIdentities(sshAuthSock); err != nil {
 			return err
 		}
 	}
 
-	_, err := authGitHub(opts.Hostname)
-	if err != nil {
+	// TODO: support rotation
+	
+	// authed, err := authGitHub(opts.Hostname)
+	// if err != nil {
+	// 	return err
+	// }
+	// if authed {
+	// 	return nil
+	// }
+
+	fmt.Println()
+	if err := ensureKeyFileExists(opts.KeyFile, opts.Hostname); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -73,7 +88,7 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 	} else {
 		fmt.Println("Removing these existing identities:")
 		for _, identity := range identities {
-			fmt.Printf("%s %s %s\n", identity.Comment, fingerprintSHA256(identity.Blob), identity.Format)
+			fmt.Printf("%s %s (%s)\n", fingerprintSHA256(identity.Blob), identity.Comment, identity.Format)
 		}
 	}
 
@@ -113,4 +128,39 @@ func authGitHub(hostname string) (bool, error) {
 		return true, nil
 	}
 	return false, err
+}
+
+func ensureKeyFileExists(keyFile string, hostname string) error {
+
+	if strings.HasPrefix(keyFile, "~/") {
+		dirname, _ := os.UserHomeDir()
+		keyFile = filepath.Join(dirname, keyFile[2:])
+	}
+
+	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
+		// create new key file
+		fmt.Printf("Creating key file %s\n", keyFile)
+		fmt.Println("Please specify a passphrase!")
+
+		localHostname, err := os.Hostname()
+		if err != nil {
+			return err
+		}
+		comment := fmt.Sprintf("%s (%s)", hostname, localHostname)
+
+		// TODO: enforce passphrase
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", comment, "-f", keyFile)
+		out, err := cmd.Output()
+		fmt.Println(string(out))
+		return err
+
+	} else {
+		// display fingerprint of existing key for easy debugging
+		fmt.Printf("%s: ", keyFile)
+
+		cmd := exec.Command("ssh-keygen", "-lf", keyFile)
+		out, err := cmd.Output()
+		fmt.Println(string(out))
+		return err
+	}
 }
