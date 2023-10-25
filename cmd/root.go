@@ -1,12 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 )
-
-
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -25,6 +24,7 @@ Diagnose github configuration.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		fmt.Fprintln(os.Stderr, "X Error:", err.Error())
 		os.Exit(1)
 	}
 }
@@ -34,7 +34,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("help", false, "Show help for command")
 	// don't display usage on error
 	rootCmd.SilenceUsage = true
-	//rootCmd.SilenceErrors = true
+	rootCmd.SilenceErrors = true
 }
 
 

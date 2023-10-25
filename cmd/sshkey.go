@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/agent"
 )
@@ -52,7 +53,7 @@ func ensure(opts *SshKeyOptions) error {
 	}
 
 	// TODO: support rotation
-	
+
 	// authed, err := authGitHub(opts.Hostname)
 	// if err != nil {
 	// 	return err
@@ -61,10 +62,16 @@ func ensure(opts *SshKeyOptions) error {
 	// 	return nil
 	// }
 
-	fmt.Println()
+	//fmt.Println()
 	if err := ensureKeyFileExists(opts.KeyFile, opts.Hostname); err != nil {
 		return err
 	}
+
+	client, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname})
+	if err != nil {
+		return err
+	}
+	ensureGhAuth(client, opts.Hostname)
 
 	return nil
 }
@@ -84,15 +91,14 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 	}
 
 	if len(identities) == 0 {
-		fmt.Println("No identities loaded into SSH agent.")
+		fmt.Println("ℹ No identities present in SSH agent.")
 	} else {
-		fmt.Println("Removing these existing identities:")
-		for _, identity := range identities {
-			fmt.Printf("%s %s (%s)\n", fingerprintSHA256(identity.Blob), identity.Comment, identity.Format)
-		}
+		fmt.Println("ℹ Removing existing identities from SSH agent.")
+		// for _, identity := range identities {
+		// 	fmt.Printf("  %s %s (%s)\n", fingerprintSHA256(identity.Blob), identity.Comment, identity.Format)
+		// }
+		sshAgent.RemoveAll()
 	}
-
-	sshAgent.RemoveAll()
 
 	return nil
 }
@@ -156,11 +162,34 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 
 	} else {
 		// display fingerprint of existing key for easy debugging
-		fmt.Printf("%s: ", keyFile)
+		fmt.Printf("✓ Key file %s: ", keyFile)
 
 		cmd := exec.Command("ssh-keygen", "-lf", keyFile)
 		out, err := cmd.Output()
-		fmt.Println(string(out))
+		fmt.Print(string(out))
 		return err
 	}
+}
+
+//# request scopes needed to manage ssh keys
+//GH_PROMPT_DISABLED=1 gh auth login -h "$github_host" -p ssh -s admin:public_key -s admin:ssh_signing_key
+
+func ensureGhAuth(client *api.RESTClient, hostname string) error {
+	username, err := GetAuthenticatedUser(client)
+	if err != nil {
+		//addMsg("%s %s: api call failed: %s", cs.Red("X"), hostname, err)
+		return err
+	}
+
+	fmt.Printf("✓ Logged in to %s as %s\n", hostname, username)
+	return nil
+}
+
+func GetAuthenticatedUser(client *api.RESTClient) (string, error) {
+	var response struct {
+		Login string
+	}
+
+	err := client.Get("user", &response)
+	return response.Login, err
 }
