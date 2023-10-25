@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -99,6 +100,7 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 }
 
 var regexSshSuccess = regexp.MustCompile(`Hi (.*)! You've successfully authenticated`)
+var regexAcceptedKey = regexp.MustCompile(`Server accepts key: ([\S]+) `)
 
 // Authenticate to github using ssh.
 // Returns
@@ -108,24 +110,35 @@ var regexSshSuccess = regexp.MustCompile(`Hi (.*)! You've successfully authentic
 func ensureSshAuth(hostname string) (bool, error) {
 
 	// exec ssh rather than using the golang ssh client to mimic git and ensure we are using ~/.ssh/config
-	cmd := exec.Command("ssh", "-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=2", "git@"+hostname)
+	cmd := exec.Command("ssh", "-v", "-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=2", "git@"+hostname)
 
 	out, err := cmd.CombinedOutput()
 	sout := string(out)
 
 	if strings.Contains(sout, "Permission denied") {
-		fmt.Printf("X Cannot authenticate to %s via ssh\n", hostname)
 		return false, nil
 	}
 
-	matches := regexSshSuccess.FindStringSubmatch(sout)
-	if len(matches) > 0 {
-		username := matches[1]
+	successMatch := regexSshSuccess.FindStringSubmatch(sout)
+	if len(successMatch) > 0 {
+
+		username := successMatch[1]
 		fmt.Printf("✓ Authenticated to %s as %s via ssh\n", hostname, username)
+
+		keyMatches := regexAcceptedKey.FindStringSubmatch(sout)
+		if len(keyMatches) > 0 {
+			fmt.Printf("ℹ Accepted key %s\n", keyMatches[1])
+		}
+
 		return true, nil
 	}
 
-	fmt.Println(sout)
+	if _, ok := err.(*exec.ExitError); ok {
+		// ssh failed with a non-zero exit status,
+		// return error with ssh output as the message
+		return false, errors.New(sout)
+	}
+
 	return false, err
 }
 
