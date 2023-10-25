@@ -71,7 +71,11 @@ func ensureSshKey(opts *SshKeyOptions) error {
 	client, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname})
 	if err != nil {
 		if strings.Contains(err.Error(), "authentication token not found") {
-			return fmt.Errorf("%s\n  To fix run: gh doctor auth -h %s", err.Error(), opts.Hostname)
+			hostFlag := ""
+			if opts.Hostname!= "github.com" {
+				hostFlag = fmt.Sprintf(" -h %s", opts.Hostname)
+			}
+			return fmt.Errorf("%s\n  Please run: gh doctor auth %s", err.Error(), hostFlag)
 		}
 
 		return err
@@ -136,14 +140,13 @@ func ensureSshAuth(hostname string) (bool, error) {
 	successMatch := regexSshSuccess.FindStringSubmatch(sout)
 	if len(successMatch) > 0 {
 
-		username := successMatch[1]
-		fmt.Printf("✓ Authenticated to %s as %s via ssh\n", hostname, username)
-
-		keyMatches := regexAcceptedKey.FindStringSubmatch(sout)
+		keyMatches := regexAcceptedKey.FindString(sout)
 		if len(keyMatches) > 0 {
-			fmt.Printf("ℹ Accepted key %s\n", keyMatches[1])
+			fmt.Printf("ℹ %s\n", keyMatches)
 		}
 
+		username := successMatch[1]
+		fmt.Printf("✓ Authenticated to %s as %s via ssh\n", hostname, username)
 		return true, nil
 	}
 
