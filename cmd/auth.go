@@ -17,7 +17,7 @@ var authOpts = &AuthOptions{}
 var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Ensure a working gh auth token.",
-	Long:  `Test the gh auth token has the correct scopes.
+	Long: `Test the gh auth token has the correct scopes.
 
 Creates a token if needed.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -27,7 +27,7 @@ Creates a token if needed.`,
 
 func init() {
 	rootCmd.AddCommand(authCmd)
-	authCmd.Flags().StringVarP(&authOpts.Hostname, "hostname", "h", "github.com", "Github hostname")
+	authCmd.Flags().StringVarP(&authOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
 }
 
 //# request scopes needed to manage ssh keys
@@ -45,7 +45,7 @@ func ensureAuth(opts *AuthOptions) error {
 }
 
 func ensureGhAuth(client *api.RESTClient, hostname string) error {
-	username, err := GetAuthenticatedUser(client)
+	username, err := getAuthenticatedUser(client)
 	if err != nil {
 		//addMsg("%s %s: api call failed: %s", cs.Red("X"), hostname, err)
 		return err
@@ -55,7 +55,7 @@ func ensureGhAuth(client *api.RESTClient, hostname string) error {
 	return nil
 }
 
-func GetAuthenticatedUser(client *api.RESTClient) (string, error) {
+func getAuthenticatedUser(client *api.RESTClient) (string, error) {
 	var response struct {
 		Login string
 	}

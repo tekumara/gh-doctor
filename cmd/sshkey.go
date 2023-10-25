@@ -26,7 +26,7 @@ var sshKeyOpts = &SshKeyOptions{}
 var sshkeyCmd = &cobra.Command{
 	Use:   "ssh-key",
 	Short: "Ensure a working ssh key.",
-	Long:  `Test the ssh key is working.
+	Long: `Test the ssh key is working.
 
 Creates and adds a ssh key to your Github user if needed.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +39,7 @@ Creates and adds a ssh key to your Github user if needed.`,
 
 func init() {
 	rootCmd.AddCommand(sshkeyCmd)
-	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.Hostname, "hostname", "h", "github.com", "Github hostname")
+	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
 	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
 	sshkeyCmd.Flags().BoolVarP(&sshKeyOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
 
@@ -72,7 +72,7 @@ func ensureSshKey(opts *SshKeyOptions) error {
 	if err != nil {
 		if strings.Contains(err.Error(), "authentication token not found") {
 			hostFlag := ""
-			if opts.Hostname!= "github.com" {
+			if opts.Hostname != githubCom {
 				hostFlag = fmt.Sprintf(" -h %s", opts.Hostname)
 			}
 			return fmt.Errorf("%s\n  Please run: gh doctor auth %s", err.Error(), hostFlag)
