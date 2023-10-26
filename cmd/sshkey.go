@@ -80,7 +80,7 @@ func ensureSshKey(opts *SshKeyOptions) error {
 
 		return err
 	}
-	if err = ensureGhAuth(client, opts.Hostname); err != nil {
+	if err = ensureScopes(client, opts.Hostname); err != nil {
 		return err
 	}
 
@@ -130,6 +130,7 @@ func ensureSshAuth(hostname string) (bool, error) {
 	// exec ssh rather than using the golang ssh client to mimic git and ensure we are using ~/.ssh/config
 	cmd := exec.Command("ssh", "-v", "-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=2", "git@"+hostname)
 
+	// verbose debug logs are sent to stderr
 	out, err := cmd.CombinedOutput()
 	sout := string(out)
 
@@ -146,7 +147,7 @@ func ensureSshAuth(hostname string) (bool, error) {
 		}
 
 		username := successMatch[1]
-		fmt.Printf("✓ Authenticated to %s as %s via ssh\n", hostname, username)
+		fmt.Printf("✓ Authenticated to %s as %s using ssh\n", hostname, username)
 		return true, nil
 	}
 
