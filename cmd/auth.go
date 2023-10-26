@@ -12,10 +12,12 @@ import (
 	"github.com/cli/go-gh/v2"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
+	"github.com/tekumara/gh-doctor/internal"
 )
 
 type AuthOptions struct {
-	Hostname string
+	Hostname       string
+	ExpectedScopes []string
 }
 
 var authOpts = &AuthOptions{}
@@ -34,53 +36,71 @@ Creates a token if needed.`,
 func init() {
 	rootCmd.AddCommand(authCmd)
 	authCmd.Flags().StringVarP(&authOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
+	authCmd.Flags().StringSliceVarP(&authOpts.ExpectedScopes, "scopes", "s", nil, "Additional authentication scopes to ensure")
+}
+
+func newClient(hostname string) (*api.RESTClient, error) {
+	return api.NewRESTClient(api.ClientOptions{Host: hostname, Timeout: 2 * time.Second})
 }
 
 func ensureAuth(opts *AuthOptions) error {
 
-	client, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname, Timeout: 2 * time.Second})
+	client, err := newClient(opts.Hostname)
 
 	if err != nil {
 		if !strings.Contains(err.Error(), "authentication token not found") {
 			return err
 		}
-		if err = ghAuthLogin(opts.Hostname); err != nil {
+		if err = ghAuthLogin(opts.Hostname, opts.ExpectedScopes); err != nil {
 			return err
 		}
 		// get the client again now we have authed
-		client, err = api.NewRESTClient(api.ClientOptions{Host: opts.Hostname, Timeout: 2 * time.Second})
+		client, err = newClient(opts.Hostname)
 		if err != nil {
 			return err
 		}
-	}
-
-	err = ensureScopes(client, opts.Hostname)
-
-	return err
-}
-
-// # request scopes needed to manage ssh keys
-// GH_PROMPT_DISABLED=1 gh auth login -h "$github_host" -p ssh -s admin:public_key -s admin:ssh_signing_key
-func ghAuthLogin(hostname string) error {
-	noPrompt := []string{"GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1"}
-	err := execGh(noPrompt, "auth", "login", "-h", hostname)
-	return err
-}
-
-func ensureScopes(client *api.RESTClient, hostname string) error {
-	username, err := fetchAuthenticatedUser(client)
-	if err != nil {
-		return err
 	}
 
 	scopes, err := fetchScopes(client)
 	if err != nil {
 		return err
 	}
-	// TODO: check scopes
 
-	fmt.Printf("✓ Authenticated to %s as %s using gh token with scopes %s\n", hostname, username, scopes)
+	missing := slices.Missing(strings.Split(strings.ReplaceAll(scopes, " ", ""), ","), opts.ExpectedScopes)
+
+	if missing != nil {
+		fmt.Printf("ℹ Requesting missing scopes %s\n", strings.Join(missing, ", "))
+		if err = ghAuthLogin(opts.Hostname, missing); err != nil {
+			return err
+		}
+		// get a new client using the new token
+		client, err = newClient(opts.Hostname)
+		if err != nil {
+			return err
+		}
+		scopes, err = fetchScopes(client)
+		if err != nil {
+			return err
+		}
+	}
+
+	username, err := fetchAuthenticatedUser(client)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("✓ Authenticated to %s as %s using gh token with scopes %s\n", opts.Hostname, username, scopes)
 	return nil
+}
+
+func ghAuthLogin(hostname string, scopes []string) error {
+	env := []string{"GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1"}
+	args := []string{"auth", "login", "-h", hostname}
+	for _, s := range scopes {
+		args = append(args, "-s", s)
+	}
+	err := execGh(env, args...)
+	return err
 }
 
 func fetchAuthenticatedUser(client *api.RESTClient) (string, error) {
@@ -125,6 +145,9 @@ func execGh(env []string, args ...string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if env != nil {
+		// append this processes's env vars so gh can locate its config, state and data dirs
+		// as per https://github.com/cli/go-gh/blob/47a83eeb1778d8e60e98e356b9e5d6178a567f31/pkg/config/config.go#L236
+		env = append(env, os.Environ()...)
 		cmd.Env = env
 	}
 	if err := cmd.Run(); err != nil {

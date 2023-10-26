@@ -12,6 +12,7 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
+	"github.com/tekumara/gh-doctor/internal"
 	"golang.org/x/crypto/ssh/agent"
 )
 
@@ -73,9 +74,9 @@ func ensureSshKey(opts *SshKeyOptions) error {
 		if strings.Contains(err.Error(), "authentication token not found") {
 			hostFlag := ""
 			if opts.Hostname != githubCom {
-				hostFlag = fmt.Sprintf(" -h %s", opts.Hostname)
+				hostFlag = fmt.Sprintf(" -h %s ", opts.Hostname)
 			}
-			return fmt.Errorf("%s\n  Please run: gh doctor auth %s", err.Error(), hostFlag)
+			return fmt.Errorf("%w\n  Please run: gh doctor auth %s-s admin:public_key", err, hostFlag)
 		}
 
 		return err
@@ -97,14 +98,14 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 	// Connect to the SSH agent using the SSH_AUTH_SOCK socket
 	agentConn, err := net.Dial("unix", sshAuthSock)
 	if err != nil {
-		return fmt.Errorf("failed to connect to the SSH agent: %v", err)
+		return fmt.Errorf("failed to connect to the SSH agent: %w", err)
 	}
 	defer agentConn.Close()
 	sshAgent := agent.NewClient(agentConn)
 
 	identities, err := sshAgent.List()
 	if err != nil {
-		return fmt.Errorf("failed to list SSH agent identities: %v", err)
+		return fmt.Errorf("failed to list SSH agent identities: %w", err)
 	}
 
 	if len(identities) == 0 {
@@ -160,6 +161,28 @@ func ensureSshAuth(hostname string) (bool, error) {
 	return false, err
 }
 
+func ensureScopes(client *api.RESTClient, hostname string) error {
+	username, err := fetchAuthenticatedUser(client)
+	if err != nil {
+		return err
+	}
+
+	scopes, err := fetchScopes(client)
+	if err != nil {
+		return err
+	}
+
+	missing := slices.Missing(strings.Split(scopes, ","), []string{"admin:public_key"})
+
+	// TODO: remove this and just let it die?
+	if missing != nil {
+		return fmt.Errorf("cannot set ssh key because %s is missing scopes %s", username, strings.Join(missing, ","))
+	}
+
+	fmt.Printf("✓ Authenticated to %s as %s using gh token with scopes %s\n", hostname, username, scopes)
+	return nil
+}
+
 func ensureKeyFileExists(keyFile string, hostname string) error {
 
 	if strings.HasPrefix(keyFile, "~/") {
@@ -179,6 +202,7 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 		comment := fmt.Sprintf("%s (%s)", hostname, localHostname)
 
 		// TODO: enforce passphrase
+		// prompt appears on stderr
 		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", comment, "-f", keyFile)
 		out, err := cmd.Output()
 		fmt.Println(string(out))
