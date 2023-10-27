@@ -65,7 +65,20 @@ func ensureAuth(opts *AuthOptions) error {
 
 	scopes, err := fetchScopes(client)
 	if err != nil {
-		return err
+		if httpErr, ok := err.(*api.HTTPError); !ok || httpErr.StatusCode != 401 {
+			return err
+		}
+
+		// we have bad (eg: revoked) credentials, so login
+		fmt.Println("ℹ Refreshing token because its invalid.")
+		if err = ghAuthLogin(opts.Hostname, opts.AdditionalScopes); err != nil {
+			return err
+		}
+		// get the client again now we have authed
+		client, err = newClient(opts.Hostname)
+		if err != nil {
+			return err
+		}
 	}
 
 	scopesSlice := strings.Split(strings.ReplaceAll(scopes, " ", ""), ",")
