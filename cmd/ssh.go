@@ -14,7 +14,7 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
-	slices "github.com/tekumara/gh-doctor/internal"
+	"github.com/tekumara/gh-doctor/internal/util"
 	"golang.org/x/crypto/ssh/agent"
 )
 
@@ -70,7 +70,7 @@ func ensureSsh(opts *SshOptions) error {
 		}
 	}
 
-	client, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname})
+	_, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname})
 	if err != nil {
 		if strings.Contains(err.Error(), "authentication token not found") {
 			hostFlag := ""
@@ -82,13 +82,16 @@ func ensureSsh(opts *SshOptions) error {
 
 		return err
 	}
-	if err = ensureScopes(client, opts.Hostname); err != nil {
-		return err
-	}
 
 	// TODO: delete file if exists and rotating
 
-	if err := ensureKeyFileExists(opts.KeyFile, opts.Hostname); err != nil {
+	keyFile := expand(opts.KeyFile)
+
+	if err := ensureKeyFileExists(keyFile, opts.Hostname); err != nil {
+		return err
+	}
+
+	if err := addKey(keyFile+".pub", opts.Hostname); err != nil {
 		return err
 	}
 
@@ -162,35 +165,16 @@ func ensureSshAuth(hostname string) (bool, error) {
 	return false, err
 }
 
-func ensureScopes(client *api.RESTClient, hostname string) error {
-	username, err := fetchAuthenticatedUser(client)
-	if err != nil {
-		return err
+// expand ~ to home dir
+func expand(keyFile string) string {
+	if strings.HasPrefix(keyFile, "~/") {
+		dirname, _ := os.UserHomeDir()
+		return filepath.Join(dirname, keyFile[2:])
 	}
-
-	scopes, err := fetchScopes(client)
-	if err != nil {
-		return err
-	}
-
-	missing := slices.Missing(strings.Split(scopes, ","), []string{"admin:public_key"})
-
-	// TODO: remove this and just let it die?
-	if missing != nil {
-		return fmt.Errorf("cannot set ssh key because %s is missing scopes %s", username, strings.Join(missing, ","))
-	}
-
-	fmt.Printf("✓ Authenticated to %s as %s using token with scopes %s\n", hostname, username, scopes)
-	return nil
+	return keyFile
 }
 
 func ensureKeyFileExists(keyFile string, hostname string) error {
-
-	if strings.HasPrefix(keyFile, "~/") {
-		dirname, _ := os.UserHomeDir()
-		keyFile = filepath.Join(dirname, keyFile[2:])
-	}
-
 	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
 		// create new key file
 		fmt.Printf("Creating key file %s\n", keyFile)
@@ -203,8 +187,8 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 		comment := fmt.Sprintf("%s (%s)", hostname, localHostname)
 
 		// TODO: enforce passphrase
-		// prompt appears on stderr
 		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", comment, "-f", keyFile)
+		// prompt appears on stderr
 		out, err := cmd.Output()
 		fmt.Println(string(out))
 		return err
@@ -218,4 +202,10 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 		fmt.Print(string(out))
 		return err
 	}
+}
+
+func addKey(keyFile string, hostname string) error {
+	args := []string{"ssh-key", "add", keyFile}
+	err := util.ExecGh(nil, args...)
+	return err
 }

@@ -1,4 +1,4 @@
-package slices
+package util
 
 // Returns elements of needle not present in haystack
 func Missing(haystack, needle []string) []string {
