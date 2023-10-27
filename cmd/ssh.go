@@ -1,6 +1,5 @@
 package cmd
 
-//TODO: rename ssh-key to ssh
 //TODO: rename gh-doctor to gh-ensure
 
 import (
@@ -15,40 +14,40 @@ import (
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
-	"github.com/tekumara/gh-doctor/internal"
+	slices "github.com/tekumara/gh-doctor/internal"
 	"golang.org/x/crypto/ssh/agent"
 )
 
-type SshKeyOptions struct {
+type SshOptions struct {
 	Hostname string
 	KeyFile  string
 	Rotate   bool
 }
 
-var sshKeyOpts = &SshKeyOptions{}
+var sshOpts = &SshOptions{}
 
-var sshkeyCmd = &cobra.Command{
-	Use:   "ssh-key",
-	Short: "Ensure a working ssh key.",
-	Long: `Test the ssh key is working.
+var sshCmd = &cobra.Command{
+	Use:   "ssh",
+	Short: "Ensure ssh is working.",
+	Long: `Ensure ssh is working.
 
 Creates and adds a ssh key to your Github user if needed.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if sshKeyOpts.KeyFile == "~/.ssh/[hostname]" {
-			sshKeyOpts.KeyFile = "~/.ssh/" + sshKeyOpts.Hostname
+		if sshOpts.KeyFile == "~/.ssh/[hostname]" {
+			sshOpts.KeyFile = "~/.ssh/" + sshOpts.Hostname
 		}
-		return ensureSshKey(sshKeyOpts)
+		return ensureSsh(sshOpts)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(sshkeyCmd)
-	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
-	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
-	sshkeyCmd.Flags().BoolVarP(&sshKeyOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
+	rootCmd.AddCommand(sshCmd)
+	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
+	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
+	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
 }
 
-func ensureSshKey(opts *SshKeyOptions) error {
+func ensureSsh(opts *SshOptions) error {
 	sshAuthSock := os.Getenv("SSH_AUTH_SOCK")
 	if sshAuthSock == "" {
 		// no ssh agent
@@ -181,7 +180,7 @@ func ensureScopes(client *api.RESTClient, hostname string) error {
 		return fmt.Errorf("cannot set ssh key because %s is missing scopes %s", username, strings.Join(missing, ","))
 	}
 
-	fmt.Printf("✓ Authenticated to %s as %s using gh token with scopes %s\n", hostname, username, scopes)
+	fmt.Printf("✓ Authenticated to %s as %s using token with scopes %s\n", hostname, username, scopes)
 	return nil
 }
 

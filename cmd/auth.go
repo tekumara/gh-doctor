@@ -1,7 +1,5 @@
 package cmd
 
-// TODO: add git protocol
-
 import (
 	"fmt"
 	"io"
@@ -28,9 +26,9 @@ var authOpts = &AuthOptions{}
 var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Ensure a working gh auth token.",
-	Long: `Test the gh auth token has the correct scopes.
+	Long: `Ensure a working gh auth token.
 
-Creates a token if needed.`,
+Creates a token if needed with any additional scopes if specified.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return ensureAuth(authOpts)
 	},
@@ -95,7 +93,7 @@ func ensureAuth(opts *AuthOptions) error {
 		return err
 	}
 
-	fmt.Printf("✓ Authenticated to %s as %s using gh token with scopes %s\n", opts.Hostname, username, scopes)
+	fmt.Printf("✓ Authenticated to %s as %s using token with scopes %s\n", opts.Hostname, username, scopes)
 	return nil
 }
 
