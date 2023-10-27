@@ -1,5 +1,8 @@
 package cmd
 
+//TODO: rename ssh-key to ssh
+//TODO: rename gh-doctor to gh-ensure
+
 import (
 	"errors"
 	"fmt"
@@ -43,7 +46,6 @@ func init() {
 	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
 	sshkeyCmd.Flags().StringVarP(&sshKeyOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
 	sshkeyCmd.Flags().BoolVarP(&sshKeyOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
-
 }
 
 func ensureSshKey(opts *SshKeyOptions) error {

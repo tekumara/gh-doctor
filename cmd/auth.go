@@ -1,5 +1,7 @@
 package cmd
 
+// TODO: add git protocol
+
 import (
 	"fmt"
 	"io"
@@ -16,8 +18,9 @@ import (
 )
 
 type AuthOptions struct {
-	Hostname       string
-	ExpectedScopes []string
+	Hostname         string
+	AdditionalScopes []string
+	Refresh          bool
 }
 
 var authOpts = &AuthOptions{}
@@ -36,7 +39,8 @@ Creates a token if needed.`,
 func init() {
 	rootCmd.AddCommand(authCmd)
 	authCmd.Flags().StringVarP(&authOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
-	authCmd.Flags().StringSliceVarP(&authOpts.ExpectedScopes, "scopes", "s", nil, "Additional authentication scopes to ensure")
+	authCmd.Flags().StringSliceVarP(&authOpts.AdditionalScopes, "scopes", "s", nil, "Additional authentication scopes to add if missing")
+	authCmd.Flags().BoolVarP(&authOpts.Refresh, "refresh", "r", false, "Refresh existing token (if any) with minimum scopes + additional scopes")
 }
 
 func newClient(hostname string) (*api.RESTClient, error) {
@@ -47,11 +51,11 @@ func ensureAuth(opts *AuthOptions) error {
 
 	client, err := newClient(opts.Hostname)
 
-	if err != nil {
-		if !strings.Contains(err.Error(), "authentication token not found") {
+	if err != nil || opts.Refresh {
+		if err != nil && !strings.Contains(err.Error(), "authentication token not found") {
 			return err
 		}
-		if err = ghAuthLogin(opts.Hostname, opts.ExpectedScopes); err != nil {
+		if err = ghAuthLogin(opts.Hostname, opts.AdditionalScopes); err != nil {
 			return err
 		}
 		// get the client again now we have authed
@@ -66,11 +70,13 @@ func ensureAuth(opts *AuthOptions) error {
 		return err
 	}
 
-	missing := slices.Missing(strings.Split(strings.ReplaceAll(scopes, " ", ""), ","), opts.ExpectedScopes)
+	scopesSlice := strings.Split(strings.ReplaceAll(scopes, " ", ""), ",")
+	missing := slices.Missing(scopesSlice, opts.AdditionalScopes)
 
 	if missing != nil {
 		fmt.Printf("ℹ Requesting missing scopes %s\n", strings.Join(missing, ", "))
-		if err = ghAuthLogin(opts.Hostname, missing); err != nil {
+		// mimic behaviour of gh auth refresh, ie: create a new token with existing scopes + the missing ones
+		if err = ghAuthLogin(opts.Hostname, append(scopesSlice, missing...)); err != nil {
 			return err
 		}
 		// get a new client using the new token

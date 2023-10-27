@@ -1,6 +1,6 @@
 package slices
 
-// Returns elements of the slice needle not present in the slice haystack
+// Returns elements of needle not present in haystack
 func Missing(haystack, needle []string) []string {
 	var notFound []string
 
