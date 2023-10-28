@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/kevinburke/ssh_config"
 	"github.com/spf13/cobra"
 	"github.com/tekumara/gh-doctor/internal/util"
 	"golang.org/x/crypto/ssh/agent"
@@ -92,6 +93,10 @@ func ensureSsh(opts *SshOptions) error {
 	}
 
 	if err := addKey(keyFile+".pub", opts.Hostname); err != nil {
+		return err
+	}
+
+	if err := updateSshConfig(keyFile, opts.Hostname); err != nil {
 		return err
 	}
 
@@ -208,4 +213,84 @@ func addKey(keyFile string, hostname string) error {
 	args := []string{"ssh-key", "add", keyFile}
 	err := util.ExecGh(nil, args...)
 	return err
+}
+
+func updateSshConfig(keyFile string, hostname string) error {
+	f, err := os.Open(filepath.Join(os.Getenv("HOME"), ".ssh", "config"))
+	if err != nil {
+		return err
+	}
+	cfg, err := ssh_config.Decode(f)
+	if err != nil {
+		return err
+	}
+
+	host, identifyFileNode := findHostAndKey(cfg, hostname, "IdentityFile")
+
+	if identifyFileNode != nil {
+		if identifyFileNode.Value == keyFile {
+			fmt.Printf("✓ ~/.ssh/config uses key file %s\n", keyFile)
+		} else {
+			identifyFileNode.Value = keyFile
+			fmt.Printf("✓ Updated existing host in ~/.ssh/config to use key file %s\n", keyFile)
+		}
+		fmt.Println(cfg.String())
+	} else if host != nil && identifyFileNode == nil {
+		fmt.Printf("✓ Added key file %s to existing host in ~/.ssh/config\n", keyFile)
+		identifyFileNode = &ssh_config.KV{Key: "IdentityFile", Value: keyFile}
+		host.Nodes = append(host.Nodes, identifyFileNode)
+		fmt.Println(cfg.String())
+	} else { // host == nil
+		// add new node ourselves as strings rather than a new Node so we can
+		// control the whitespace see https://github.com/kevinburke/ssh_config/issues/12
+		fmt.Printf("✓ Added Host %s to ~/.ssh/config\n", hostname)
+
+		hostString := `
+Host ` + hostname + `
+  IdentityFile ` + keyFile
+		fmt.Println(cfg.String() + hostString)
+	}
+
+	return nil
+}
+
+func findHostAndKey(cfg *ssh_config.Config, hostname string, key string) (*ssh_config.Host, *ssh_config.KV) {
+	var host *ssh_config.Host
+outer:
+	for _, h := range cfg.Hosts {
+		for _, p := range h.Patterns {
+			if p.String() == hostname {
+				if len(h.Patterns) > 1 {
+					patterns := ""
+					for _, p2 := range h.Patterns {
+						patterns = patterns + p2.String() + " "
+					}
+					fmt.Printf("ℹ Host %sin ~/.ssh/config ignored because it includes other hosts\n", patterns)
+					break
+				} else {
+					host = h
+					break outer
+				}
+			}
+		}
+	}
+
+	var identifyFileNode *ssh_config.KV
+	if host != nil {
+		lkey := strings.ToLower(key)
+		for _, n := range host.Nodes {
+			switch n := n.(type) {
+			case *ssh_config.KV:
+				// keys are case insensitive per the spec
+				if strings.ToLower(n.Key) == lkey {
+					identifyFileNode = n
+				}
+			default:
+				continue
+			}
+		}
+	}
+
+	return host, identifyFileNode
+
 }
