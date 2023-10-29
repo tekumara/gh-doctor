@@ -11,8 +11,7 @@ import (
 // Invoke a gh command in a subprocess with its stdin, stdout, and stderr streams connected to
 // those of the parent process. This is suitable for running gh commands with interactive prompts.
 // Adapted from https://github.com/cli/go-gh/blob/47a83eeb1778d8e60e98e356b9e5d6178a567f31/gh.go#L41
-// to support env vars.
-func ExecGh(env []string, args ...string) error {
+func ExecGh(args ...string) error {
 	ghExe, err := gh.Path()
 	if err != nil {
 		return err
@@ -21,12 +20,11 @@ func ExecGh(env []string, args ...string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if env != nil {
-		// append this processes's env vars so gh can locate its config, state and data dirs
-		// as per https://github.com/cli/go-gh/blob/47a83eeb1778d8e60e98e356b9e5d6178a567f31/pkg/config/config.go#L236
-		env = append(env, os.Environ()...)
-		cmd.Env = env
-	}
+	// GH_PROMPT_DISABLED ensures the minimal amount of prompting eg: during gh auth login
+	// GH_NO_UPDATE_NOTIFIER prevents notification of a new gh release
+	// append this processes's env vars so gh can locate its config, state and data dirs
+	// as per https://github.com/cli/go-gh/blob/47a83eeb1778d8e60e98e356b9e5d6178a567f31/pkg/config/config.go#L236
+	cmd.Env = append([]string{"GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1"}, os.Environ()...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("gh execution failed: %w", err)
 	}

@@ -108,12 +108,11 @@ func ensureAuth(opts *AuthOptions) error {
 }
 
 func ghAuthLogin(hostname string, scopes []string) error {
-	env := []string{"GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1"}
 	args := []string{"auth", "login", "-h", hostname}
 	for _, s := range scopes {
 		args = append(args, "-s", s)
 	}
-	err := util.ExecGh(env, args...)
+	err := util.ExecGh(args...)
 	return err
 }
 
