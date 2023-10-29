@@ -39,7 +39,8 @@ func TestUpdateSshConfig(t *testing.T) {
 		},
 		{
 			name:              "ExistingHostUpdateIdentityFile",
-			sshConfig:         "Host github.com\n  IdentityFile old.key\n",
+			// existing ssh config is larger than the new one to test truncate
+			sshConfig:         "Host github.com\n  IdentityFile yeolde.key\n",
 			keyFile:           "new.key",
 			hostname:          "github.com",
 			expectedSshConfig: "Host github.com\n  IdentityFile new.key\n",

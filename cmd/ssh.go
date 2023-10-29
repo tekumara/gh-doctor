@@ -264,18 +264,27 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 		msg = fmt.Sprintf("✓ Added Host %s to %s\n", hostname, sshConfigPath)
 	}
 
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return err
-	}
+	if newSshConfig != "" {
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			return err
+		}
 
-	_, err = f.WriteString(newSshConfig)
-	if err != nil {
-		return err
+		_, err = f.WriteString(newSshConfig)
+		if err != nil {
+			return err
+		}
+
+		// newSshConfig may be smaller than the existing file contents
+		// so truncate to the new size
+		f.Truncate(int64(len(newSshConfig)))
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Print(msg)
-	return err
+	return nil
 }
 
 func findHostAndKey(sshConfigPath string, cfg *ssh_config.Config, hostname string, key string) (*ssh_config.Host, *ssh_config.KV) {
