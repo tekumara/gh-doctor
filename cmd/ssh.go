@@ -128,7 +128,7 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 }
 
 var regexSshSuccess = regexp.MustCompile(`Hi (.*)! You've successfully authenticated`)
-var regexAcceptedKey = regexp.MustCompile(`Server accepts key: ([\S]+) `)
+var regexAcceptedKey = regexp.MustCompile(`Server accepts key: .*`)
 
 // Authenticate to github using ssh.
 // Returns
@@ -215,6 +215,9 @@ func addKey(keyFile string, hostname string) error {
 	return err
 }
 
+// upsert ssh config with host to use keyfile
+// when adding a new host, set AddKeysToAgent and UseKeychain to yes
+// as per https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
 func updateSshConfig(sshConfigPath string, keyFile string, hostname string) error {
 	// open ssh config, creating it if it doesn't exist
 	f, err := os.OpenFile(expand(sshConfigPath), os.O_CREATE|os.O_RDWR, 0666)
@@ -259,6 +262,8 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 			separator = "\n"
 		}
 		newSshConfig = fmt.Sprintf(`%s%sHost %s
+  AddKeysToAgent yes
+  UseKeychain yes
   IdentityFile %s
 `, cfg.String(), separator, hostname, keyFile)
 		msg = fmt.Sprintf("✓ Added Host %s to %s\n", hostname, sshConfigPath)
