@@ -28,7 +28,7 @@ func TestUpdateSshConfig(t *testing.T) {
 			sshConfig:         "Host foo.bar\n  IdentityFile top_secret\n",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
-			expectedSshConfig: "Host foo.bar\n  IdentityFile top_secret\nHost github.com\n  IdentityFile id_rsa\n",
+			expectedSshConfig: "Host foo.bar\n  IdentityFile top_secret\n\nHost github.com\n  IdentityFile id_rsa\n",
 		},
 		{
 			name:              "AlreadyExistsNoOp",
@@ -45,11 +45,12 @@ func TestUpdateSshConfig(t *testing.T) {
 			expectedSshConfig: "Host github.com\n  IdentityFile new.key\n",
 		},
 		{
-			name:              "ExistingHostUpdateAddIdentityFile",
-			sshConfig:         "Host github.com\n  AddKeysToAgent yes\n",
+			name:              "ExistingHostUpdateAddIdentityFileBetweenHosts",
+			sshConfig:         "Host github.com\n  AddKeysToAgent yes\n\nHost foo.bar\n",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
-			expectedSshConfig: "Host github.com\n  AddKeysToAgent yes\nIdentityFile id_rsa\n",
+			// NB: IdentityFile isn't indented see https://github.com/kevinburke/ssh_config/issues/12
+			expectedSshConfig: "Host github.com\nIdentityFile id_rsa\n  AddKeysToAgent yes\n\nHost foo.bar\n",
 		},
 	}
 

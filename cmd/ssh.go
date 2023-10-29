@@ -137,7 +137,7 @@ var regexAcceptedKey = regexp.MustCompile(`Server accepts key: ([\S]+) `)
 // false, error = timeout, can't resolve hostname etc.
 func ensureSshAuth(hostname string) (bool, error) {
 
-	// exec ssh rather than using the golang ssh client to mimic git and ensure we are using ~/.ssh/config
+	// exec ssh rather than using the golang ssh client to mimic git and use the user's ssh config
 	cmd := exec.Command("ssh", "-v", "-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=2", "git@"+hostname)
 
 	// verbose debug logs are sent to stderr
@@ -242,15 +242,25 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 		}
 	} else if host != nil && identifyFileNode == nil {
 		identifyFileNode = &ssh_config.KV{Key: "IdentityFile", Value: keyFile}
-		host.Nodes = append(host.Nodes, identifyFileNode)
+		// prepend to preserve comments/whitespace between hosts
+		host.Nodes = append([]ssh_config.Node{identifyFileNode}, host.Nodes...)
 		newSshConfig = cfg.String()
 		msg = fmt.Sprintf("✓ Added IdentityFile to Host %s in %s\n", hostname, sshConfigPath)
 	} else { // host == nil
 		// add new node ourselves as strings rather than a new Node so we can
-		// print indentation see https://github.com/kevinburke/ssh_config/issues/12
-		newSshConfig = fmt.Sprintf(`%sHost %s
+		// control indentation see https://github.com/kevinburke/ssh_config/issues/12
+		// and separation
+		var separator string
+		if cfg.String() == "" {
+			// new ssh config
+			separator = ""
+		} else {
+			// separator new host from previous hosts
+			separator = "\n"
+		}
+		newSshConfig = fmt.Sprintf(`%s%sHost %s
   IdentityFile %s
-`, cfg.String(), hostname, keyFile)
+`, cfg.String(), separator, hostname, keyFile)
 		msg = fmt.Sprintf("✓ Added Host %s to %s\n", hostname, sshConfigPath)
 	}
 
