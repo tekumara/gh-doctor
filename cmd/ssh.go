@@ -216,7 +216,7 @@ func addKey(keyFile string, hostname string) error {
 }
 
 func updateSshConfig(sshConfigPath string, keyFile string, hostname string) error {
-	// open ssh config creating it if it doesn't exist
+	// open ssh config, creating it if it doesn't exist
 	f, err := os.OpenFile(expand(sshConfigPath), os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return err
@@ -248,9 +248,9 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 	} else { // host == nil
 		// add new node ourselves as strings rather than a new Node so we can
 		// print indentation see https://github.com/kevinburke/ssh_config/issues/12
-		newSshConfig = fmt.Sprintf(`%s
-Host %s
-  IdentityFile %s`, cfg.String(), hostname, keyFile)
+		newSshConfig = fmt.Sprintf(`%sHost %s
+  IdentityFile %s
+`, cfg.String(), hostname, keyFile)
 		msg = fmt.Sprintf("✓ Added Host %s to %s\n", hostname, sshConfigPath)
 	}
 

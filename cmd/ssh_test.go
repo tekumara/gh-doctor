@@ -1,0 +1,95 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"testing"
+	"time"
+)
+
+func TestUpdateSshConfig(t *testing.T) {
+
+	tests := []struct {
+		name              string
+		sshConfig         string
+		keyFile           string
+		hostname          string
+		expectedSshConfig string
+	}{
+		{
+			name:              "CreateNewSshConfig",
+			sshConfig:         "",
+			keyFile:           "id_rsa",
+			hostname:          "github.com",
+			expectedSshConfig: "Host github.com\n  IdentityFile id_rsa\n",
+		},
+		{
+			name:              "AddHostToExistingSshConfig",
+			sshConfig:         "Host foo.bar\n  IdentityFile top_secret\n",
+			keyFile:           "id_rsa",
+			hostname:          "github.com",
+			expectedSshConfig: "Host foo.bar\n  IdentityFile top_secret\nHost github.com\n  IdentityFile id_rsa\n",
+		},
+		{
+			name:              "AlreadyExistsNoOp",
+			sshConfig:         "Host github.com\n  IdentityFile id_rsa\n",
+			keyFile:           "id_rsa",
+			hostname:          "github.com",
+			expectedSshConfig: "Host github.com\n  IdentityFile id_rsa\n",
+		},
+		{
+			name:              "ExistingHostUpdateIdentityFile",
+			sshConfig:         "Host github.com\n  IdentityFile old.key\n",
+			keyFile:           "new.key",
+			hostname:          "github.com",
+			expectedSshConfig: "Host github.com\n  IdentityFile new.key\n",
+		},
+		{
+			name:              "ExistingHostUpdateAddIdentityFile",
+			sshConfig:         "Host github.com\n  AddKeysToAgent yes\n",
+			keyFile:           "id_rsa",
+			hostname:          "github.com",
+			expectedSshConfig: "Host github.com\n  AddKeysToAgent yes\nIdentityFile id_rsa\n",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			// Create existing config if any
+			var sshConfigPath string
+			if test.sshConfig != "" {
+				f, err := os.CreateTemp("", "sshconfig")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer os.Remove(f.Name())
+
+				if _, err := f.WriteString(test.sshConfig); err != nil {
+					t.Fatal(err)
+				}
+				sshConfigPath = f.Name()
+				f.Close()
+			} else {
+				sshConfigPath = fmt.Sprintf("%s/sshconfig.%d", os.TempDir(), time.Now().UnixMilli())
+			}
+			defer os.Remove(sshConfigPath)
+
+			// Do update
+			if err := updateSshConfig(sshConfigPath, test.keyFile, test.hostname); err != nil {
+				t.Fatal(err)
+			}
+
+			// Check results
+			content, err := os.ReadFile(sshConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(content) != test.expectedSshConfig {
+				t.Errorf("\ngot  %q\nwant %q", string(content), test.expectedSshConfig)
+			}
+
+		})
+	}
+
+}
