@@ -96,7 +96,7 @@ func ensureSsh(opts *SshOptions) error {
 		return err
 	}
 
-	if err := updateSshConfig(keyFile, opts.Hostname); err != nil {
+	if err := updateSshConfig("~/.ssh/config", keyFile, opts.Hostname); err != nil {
 		return err
 	}
 
@@ -215,44 +215,43 @@ func addKey(keyFile string, hostname string) error {
 	return err
 }
 
-func updateSshConfig(keyFile string, hostname string) error {
-	// open ~/.ssh/config creating it if it doesn't exist
-	sshConfigPath := filepath.Join(os.Getenv("HOME"), ".ssh", "config")
-	f, err := os.OpenFile(sshConfigPath, os.O_CREATE|os.O_RDWR, 0666)
+func updateSshConfig(sshConfigPath string, keyFile string, hostname string) error {
+	// open ssh config creating it if it doesn't exist
+	f, err := os.OpenFile(expand(sshConfigPath), os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	// read ~/.ssh/config
+	// read ssh config
 	cfg, err := ssh_config.Decode(f)
 	if err != nil {
 		return err
 	}
 
-	host, identifyFileNode := findHostAndKey(cfg, hostname, "IdentityFile")
+	host, identifyFileNode := findHostAndKey(sshConfigPath, cfg, hostname, "IdentityFile")
 
 	var newSshConfig, msg string
 	if identifyFileNode != nil {
 		if identifyFileNode.Value == keyFile {
-			msg = fmt.Sprintf("✓ Host %s in ~/.ssh/config already configured\n", hostname)
+			msg = fmt.Sprintf("✓ Host %s in %s already configured\n", hostname, sshConfigPath)
 		} else {
 			identifyFileNode.Value = keyFile
-			msg = fmt.Sprintf("✓ Updated Host %s in ~/.ssh/config to use key file\n", hostname)
+			msg = fmt.Sprintf("✓ Updated Host %s in %s to use key file\n", hostname, sshConfigPath)
 			newSshConfig = cfg.String()
 		}
 	} else if host != nil && identifyFileNode == nil {
 		identifyFileNode = &ssh_config.KV{Key: "IdentityFile", Value: keyFile}
 		host.Nodes = append(host.Nodes, identifyFileNode)
 		newSshConfig = cfg.String()
-		msg = fmt.Sprintf("✓ Added IdentityFile to Host %s in ~/.ssh/config\n", hostname)
+		msg = fmt.Sprintf("✓ Added IdentityFile to Host %s in %s\n", hostname, sshConfigPath)
 	} else { // host == nil
 		// add new node ourselves as strings rather than a new Node so we can
 		// print indentation see https://github.com/kevinburke/ssh_config/issues/12
 		newSshConfig = fmt.Sprintf(`%s
 Host %s
   IdentityFile %s`, cfg.String(), hostname, keyFile)
-		msg = fmt.Sprintf("✓ Added Host %s to ~/.ssh/config\n", hostname)
+		msg = fmt.Sprintf("✓ Added Host %s to %s\n", hostname, sshConfigPath)
 	}
 
 	_, err = f.Seek(0, 0)
@@ -269,7 +268,7 @@ Host %s
 	return err
 }
 
-func findHostAndKey(cfg *ssh_config.Config, hostname string, key string) (*ssh_config.Host, *ssh_config.KV) {
+func findHostAndKey(sshConfigPath string, cfg *ssh_config.Config, hostname string, key string) (*ssh_config.Host, *ssh_config.KV) {
 	var host *ssh_config.Host
 outer:
 	for _, h := range cfg.Hosts {
@@ -280,7 +279,7 @@ outer:
 					for _, p2 := range h.Patterns {
 						patterns = patterns + p2.String() + " "
 					}
-					fmt.Printf("ℹ Host %sin ~/.ssh/config ignored because it includes other hosts\n", patterns)
+					fmt.Printf("ℹ Host %sin %s ignored because it includes other hosts\n", patterns, sshConfigPath)
 					break
 				} else {
 					host = h
@@ -307,5 +306,4 @@ outer:
 	}
 
 	return host, identifyFileNode
-
 }
