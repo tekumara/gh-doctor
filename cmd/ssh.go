@@ -89,7 +89,6 @@ func ensureSsh(opts *SshOptions) error {
 
 	fmt.Printf("✓ Authenticated to %s as %s using token\n", opts.Hostname, username)
 
-
 	// TODO: delete file if exists and rotating
 
 	keyFile := expand(opts.KeyFile)
@@ -107,9 +106,9 @@ func ensureSsh(opts *SshOptions) error {
 	}
 
 	_, err = ensureSshAuth(opts.Hostname)
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -222,7 +221,7 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 
 func addKey(keyFile string, hostname string) error {
 	args := []string{"ssh-key", "add", keyFile}
-	err := util.ExecGh(args...)
+	err := util.ExecGhInteractiveWithEnv([]string{fmt.Sprintf("GH_HOST=%s", hostname)}, args...)
 	return err
 }
 

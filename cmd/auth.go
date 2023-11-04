@@ -105,7 +105,6 @@ func ghAuthLogin(hostname string, scopes []string) error {
 	for _, s := range scopes {
 		args = append(args, "-s", s)
 	}
-	err := util.ExecGh(args...)
+	err := util.ExecGhInteractive(args...)
 	return err
 }
-
