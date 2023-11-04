@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -38,4 +39,23 @@ func FetchScopes(client *api.RESTClient) (string, error) {
 	}()
 
 	return resp.Header.Get("X-Oauth-Scopes"), nil
+}
+
+type SshKey struct {
+	ID        int
+	Key       string
+	Title     string
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Return keys for the authenticated user
+func UserKeys(client *api.RESTClient) ([]SshKey, error) {
+	var keys []SshKey
+	err := client.Get("user/keys?per_page=100", &keys)
+	return keys, err
+}
+
+func DeleteKey(client *api.RESTClient, keyId int) error {
+	err := client.Delete(fmt.Sprintf("user/keys/%d", keyId), nil)
+	return err
 }

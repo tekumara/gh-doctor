@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/kevinburke/ssh_config"
 	"github.com/spf13/cobra"
 	"github.com/tekumara/gh-doctor/internal/util"
@@ -43,7 +44,7 @@ Creates and adds a ssh key to your Github user if needed.`,
 func init() {
 	rootCmd.AddCommand(sshCmd)
 	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
-	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "key file")
+	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "Private key file")
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
 }
 
@@ -89,9 +90,13 @@ func ensureSsh(opts *SshOptions) error {
 
 	fmt.Printf("✓ Authenticated to %s as %s using token\n", opts.Hostname, username)
 
-	// TODO: delete file if exists and rotating
-
 	keyFile := expand(opts.KeyFile)
+
+	if opts.Rotate {
+		if err := ensureKeyDeleted(keyFile, client); err != nil {
+			return err
+		}
+	}
 
 	if err := ensureKeyFileExists(keyFile, opts.Hostname); err != nil {
 		return err
@@ -189,6 +194,51 @@ func expand(keyFile string) string {
 	return keyFile
 }
 
+func ensureKeyDeleted(keyFile string, client *api.RESTClient) error {
+	pubKey, err := loadPublicKey(keyFile + ".pub")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	keys, err := util.UserKeys(client)
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if key.Key == pubKey {
+			if err := util.DeleteKey(client, key.ID); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := os.Remove(keyFile); err != nil {
+		return err
+	}
+	if err := os.Remove(keyFile + ".pub"); err != nil {
+		return err
+	}
+	fmt.Println("ℹ Deleted existing key.")
+	return err
+}
+
+func loadPublicKey(pubKeyFile string) (string, error) {
+	data, err := os.ReadFile(pubKeyFile)
+	if err != nil {
+		return "", err
+	}
+	pubKeyParts := strings.Split(string(data), " ")
+	if len(pubKeyParts) < 2 {
+		return "", fmt.Errorf("invalid public key %s", pubKeyFile)
+	}
+	// return public key without comment
+	pubKey := pubKeyParts[0] + " " + pubKeyParts[1]
+
+	return pubKey, nil
+}
+
 func ensureKeyFileExists(keyFile string, hostname string) error {
 	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
 		// create new key file
@@ -207,7 +257,6 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 		out, err := cmd.Output()
 		fmt.Println(string(out))
 		return err
-
 	} else {
 		// display fingerprint of existing key for easy debugging
 		fmt.Printf("✓ Key file %s: ", keyFile)
