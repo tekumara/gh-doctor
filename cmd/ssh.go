@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/kevinburke/ssh_config"
 	"github.com/spf13/cobra"
 	"github.com/tekumara/gh-doctor/internal/util"
@@ -71,7 +70,7 @@ func ensureSsh(opts *SshOptions) error {
 		}
 	}
 
-	_, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname})
+	client, err := util.NewClient(opts.Hostname)
 	if err != nil {
 		if strings.Contains(err.Error(), "authentication token not found") {
 			hostFlag := ""
@@ -83,6 +82,13 @@ func ensureSsh(opts *SshOptions) error {
 
 		return err
 	}
+	username, err := util.FetchAuthenticatedUser(client)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("✓ Authenticated to %s as %s using token\n", opts.Hostname, username)
+
 
 	// TODO: delete file if exists and rotating
 
@@ -99,6 +105,11 @@ func ensureSsh(opts *SshOptions) error {
 	if err := updateSshConfig("~/.ssh/config", keyFile, opts.Hostname); err != nil {
 		return err
 	}
+
+	_, err = ensureSshAuth(opts.Hostname)
+    if err != nil {
+        return err
+    }
 
 	return nil
 }
