@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/kevinburke/ssh_config"
 	"github.com/spf13/cobra"
 	"github.com/tekumara/gh-doctor/internal/util"
@@ -71,20 +70,11 @@ func ensureSsh(opts *SshOptions) error {
 		}
 	}
 
-	_, err := api.NewRESTClient(api.ClientOptions{Host: opts.Hostname})
+	// TODO: delete file if exists and rotating
+	_, err := ensureGhAuth(opts.Hostname)
 	if err != nil {
-		if strings.Contains(err.Error(), "authentication token not found") {
-			hostFlag := ""
-			if opts.Hostname != githubCom {
-				hostFlag = fmt.Sprintf(" -h %s ", opts.Hostname)
-			}
-			return fmt.Errorf("%w\n  Please run: gh doctor auth %s-s admin:public_key", err, hostFlag)
-		}
-
 		return err
 	}
-
-	// TODO: delete file if exists and rotating
 
 	keyFile := expand(opts.KeyFile)
 
@@ -97,6 +87,11 @@ func ensureSsh(opts *SshOptions) error {
 	}
 
 	if err := updateSshConfig("~/.ssh/config", keyFile, opts.Hostname); err != nil {
+		return err
+	}
+
+	_, err = ensureSshAuth(opts.Hostname)
+	if err != nil {
 		return err
 	}
 
@@ -129,6 +124,7 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 
 var regexSshSuccess = regexp.MustCompile(`Hi (.*)! You've successfully authenticated`)
 var regexAcceptedKey = regexp.MustCompile(`Server accepts key: .*`)
+var regexLoggedInTo = regexp.MustCompile(`Logged in to .*`)
 
 // Authenticate to github using ssh.
 // Returns
@@ -209,9 +205,29 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 	}
 }
 
+func ensureGhAuth(hostname string) (string, error) {
+	args := []string{"auth", "status", "-h", hostname}
+	stdout, err := util.ExecGh(args...)
+	if err != nil && strings.Contains(err.Error(), "You are not logged into any GitHub hosts") {
+		hostFlag := ""
+		if hostname != githubCom {
+			hostFlag = fmt.Sprintf(" -h %s ", hostname)
+		}
+		//lint:ignore ST1005 capitalise error message to match gh
+		return "", fmt.Errorf("You are not logged into any GitHub hosts.\n  Please run: gh doctor auth %s-s admin:public_key", hostFlag)
+	}
+
+	username := regexLoggedInTo.FindString(string(stdout))
+	if len(username) > 0 {
+		fmt.Printf("✓ %s\n", username)
+	}
+
+	return username, err
+}
+
 func addKey(keyFile string, hostname string) error {
 	args := []string{"ssh-key", "add", keyFile}
-	err := util.ExecGh(args...)
+	err := util.ExecGhInteractive(args...)
 	return err
 }
 

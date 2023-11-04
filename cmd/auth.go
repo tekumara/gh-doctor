@@ -98,6 +98,7 @@ func ensureAuth(opts *AuthOptions) error {
 		}
 	}
 
+	// TODO: just call gh auth status
 	username, err := fetchAuthenticatedUser(client)
 	if err != nil {
 		return err
@@ -112,7 +113,7 @@ func ghAuthLogin(hostname string, scopes []string) error {
 	for _, s := range scopes {
 		args = append(args, "-s", s)
 	}
-	err := util.ExecGh(args...)
+	err := util.ExecGhInteractive(args...)
 	return err
 }
 
