@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/spf13/cobra"
@@ -38,13 +35,9 @@ func init() {
 	authCmd.Flags().BoolVarP(&authOpts.Refresh, "refresh", "r", false, "Refresh existing token (if any) with minimum scopes + additional scopes")
 }
 
-func newClient(hostname string) (*api.RESTClient, error) {
-	return api.NewRESTClient(api.ClientOptions{Host: hostname, Timeout: 2 * time.Second})
-}
-
 func ensureAuth(opts *AuthOptions) error {
 
-	client, err := newClient(opts.Hostname)
+	client, err := util.NewClient(opts.Hostname)
 
 	if err != nil || opts.Refresh {
 		if err != nil && !strings.Contains(err.Error(), "authentication token not found") {
@@ -54,13 +47,13 @@ func ensureAuth(opts *AuthOptions) error {
 			return err
 		}
 		// get the client again now we have authed
-		client, err = newClient(opts.Hostname)
+		client, err = util.NewClient(opts.Hostname)
 		if err != nil {
 			return err
 		}
 	}
 
-	scopes, err := fetchScopes(client)
+	scopes, err := util.FetchScopes(client)
 	if err != nil {
 		if httpErr, ok := err.(*api.HTTPError); !ok || httpErr.StatusCode != 401 {
 			return err
@@ -72,7 +65,7 @@ func ensureAuth(opts *AuthOptions) error {
 			return err
 		}
 		// get the client again now we have authed
-		client, err = newClient(opts.Hostname)
+		client, err = util.NewClient(opts.Hostname)
 		if err != nil {
 			return err
 		}
@@ -88,17 +81,17 @@ func ensureAuth(opts *AuthOptions) error {
 			return err
 		}
 		// get a new client using the new token
-		client, err = newClient(opts.Hostname)
+		client, err = util.NewClient(opts.Hostname)
 		if err != nil {
 			return err
 		}
-		scopes, err = fetchScopes(client)
+		scopes, err = util.FetchScopes(client)
 		if err != nil {
 			return err
 		}
 	}
 
-	username, err := fetchAuthenticatedUser(client)
+	username, err := util.FetchAuthenticatedUser(client)
 	if err != nil {
 		return err
 	}
@@ -116,30 +109,3 @@ func ghAuthLogin(hostname string, scopes []string) error {
 	return err
 }
 
-func fetchAuthenticatedUser(client *api.RESTClient) (string, error) {
-	var response struct {
-		Login string
-	}
-
-	err := client.Get("user", &response)
-	return response.Login, err
-}
-
-// Get scopes available to the auth token.
-func fetchScopes(client *api.RESTClient) (string, error) {
-	// Adapted from https://github.com/cli/cli/blob/20baccfa85d15963eb1ab4f750da0da37b0af7f5/pkg/cmd/auth/shared/oauth_scopes.go#L35
-	resp, err := client.Request(http.MethodGet, "", nil)
-	if err != nil {
-		return "", err
-	}
-
-	defer func() {
-		// Ensure the response body is fully read and closed
-		// before we reconnect, so that we reuse the same TCPconnection.
-		// see https://www.reddit.com/r/golang/comments/13fphyz/comment/jjynmj7/
-		_, _ = io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
-	}()
-
-	return resp.Header.Get("X-Oauth-Scopes"), nil
-}
