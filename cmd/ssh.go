@@ -98,11 +98,17 @@ func ensureSsh(opts *SshOptions) error {
 		}
 	}
 
-	if err := ensureKeyFileExists(keyFile, opts.Hostname); err != nil {
+	localHostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	comment := fmt.Sprintf("%s (%s)", opts.Hostname, localHostname)
+
+	if err := ensureKeyFileExists(keyFile, comment); err != nil {
 		return err
 	}
 
-	if err := addKey(keyFile+".pub", opts.Hostname); err != nil {
+	if err := addKey(keyFile+".pub", opts.Hostname, comment); err != nil {
 		return err
 	}
 
@@ -225,31 +231,25 @@ func ensureKeyDeleted(keyFile string, client *api.RESTClient) error {
 }
 
 func loadPublicKey(pubKeyFile string) (string, error) {
-	data, err := os.ReadFile(pubKeyFile)
+	bytes, err := os.ReadFile(pubKeyFile)
 	if err != nil {
 		return "", err
 	}
-	pubKeyParts := strings.Split(string(data), " ")
-	if len(pubKeyParts) < 2 {
+	parts := strings.Fields(string(bytes))
+	if len(parts) < 2 {
 		return "", fmt.Errorf("invalid public key %s", pubKeyFile)
 	}
 	// return public key without comment
-	pubKey := pubKeyParts[0] + " " + pubKeyParts[1]
+	pubKey := parts[0] + " " + parts[1]
 
 	return pubKey, nil
 }
 
-func ensureKeyFileExists(keyFile string, hostname string) error {
+func ensureKeyFileExists(keyFile string, comment string) error {
 	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
 		// create new key file
 		fmt.Printf("Creating key file %s\n", keyFile)
 		fmt.Println("Please specify a passphrase!")
-
-		localHostname, err := os.Hostname()
-		if err != nil {
-			return err
-		}
-		comment := fmt.Sprintf("%s (%s)", hostname, localHostname)
 
 		// TODO: enforce passphrase
 		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", comment, "-f", keyFile)
@@ -268,8 +268,8 @@ func ensureKeyFileExists(keyFile string, hostname string) error {
 	}
 }
 
-func addKey(keyFile string, hostname string) error {
-	args := []string{"ssh-key", "add", keyFile}
+func addKey(keyFile string, hostname string, title string) error {
+	args := []string{"ssh-key", "add", keyFile, "-t", title}
 	err := util.ExecGhInteractiveWithEnv([]string{fmt.Sprintf("GH_HOST=%s", hostname)}, args...)
 	return err
 }
