@@ -10,10 +10,10 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "gh-doctor",
-	Short: "Setup ssh and gh auth tokens.",
+	Short: "Set up ssh and gh auth tokens.",
 	Long: `Github Doctor
 
-Setup ssh and gh auth tokens. Or rotate existing credentials.
+Set up ssh and gh auth tokens.
 
 Commands are idempotent so they can be run in scripts.`,
 }

@@ -1,6 +1,6 @@
 # Github Doctor
 
-A [Github CLI extension](https://github.com/cli/cli) to set up github ssh keys and auth tokens. Or rotate existing credentials.
+[Github CLI](https://github.com/cli/cli) extension to set up github ssh keys and auth tokens (or rotate existing credentials).
 
 Commands are idempotent so they can be re-run which is useful in scripts.
 
