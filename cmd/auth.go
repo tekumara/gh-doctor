@@ -109,6 +109,12 @@ func ensureAuth(opts *AuthOptions) error {
 
 func ghAuthLogin(hostname string, scopes []string) error {
 	args := []string{"auth", "login", "-h", hostname}
+
+	// include workflow scope so commits in .github/workflows can be pushed
+	// this is automatically added when using interactive mode, the git_protocol is https
+	// and the github credential helper is used see
+	// https://github.com/cli/cli/blob/06e438b4b4a63ce1ad7486fb7e93091e35906451/pkg/cmd/auth/shared/git_credential.go#L31
+	scopes = append(scopes, "workflow")
 	for _, s := range scopes {
 		args = append(args, "-s", s)
 	}
