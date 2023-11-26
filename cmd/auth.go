@@ -22,7 +22,9 @@ var authCmd = &cobra.Command{
 	Short: "Ensure a working gh auth token.",
 	Long: `Ensure a working gh auth token.
 
-Creates a token if needed with any additional scopes if specified.`,
+Verify the auth token works and has any required scopes.
+
+If a new token is needed the auth flow is triggered.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return ensureAuth(authOpts)
 	},
@@ -31,13 +33,18 @@ Creates a token if needed with any additional scopes if specified.`,
 func init() {
 	rootCmd.AddCommand(authCmd)
 	authCmd.Flags().StringVarP(&authOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
-	authCmd.Flags().StringSliceVarP(&authOpts.AdditionalScopes, "scopes", "s", nil, "Additional authentication scopes to add if missing")
-	authCmd.Flags().BoolVarP(&authOpts.Refresh, "refresh", "r", false, "Refresh existing token (if any) with minimum scopes + additional scopes")
+	authCmd.Flags().StringSliceVarP(&authOpts.AdditionalScopes, "scopes", "s", nil, "Required scopes. A new token is requested if these are missing.")
+	authCmd.Flags().BoolVarP(&authOpts.Refresh, "refresh", "r", false, `Refresh existing token with minimum scopes + required scopes.
+Does not revoke the old token.`)
 }
 
 func ensureAuth(opts *AuthOptions) error {
 
 	client, err := util.NewClient(opts.Hostname)
+
+	if opts.Refresh {
+		fmt.Println("! To revoke old tokens remove the Github CLI OAuth App via https://github.com/settings/connections/applications/178c6fc778ccc68e1d6a")
+	}
 
 	if err != nil || opts.Refresh {
 		if err != nil && !strings.Contains(err.Error(), "authentication token not found") {
@@ -75,7 +82,7 @@ func ensureAuth(opts *AuthOptions) error {
 	missing := util.Missing(scopesSlice, opts.AdditionalScopes)
 
 	if missing != nil {
-		fmt.Printf("ℹ Requesting missing scopes %s\n", strings.Join(missing, ", "))
+		fmt.Printf("ℹ Requesting new token with missing scopes %s\n", strings.Join(missing, ", "))
 		// mimic behaviour of gh auth refresh, ie: create a new token with existing scopes + the missing ones
 		if err = ghAuthLogin(opts.Hostname, append(scopesSlice, missing...)); err != nil {
 			return err

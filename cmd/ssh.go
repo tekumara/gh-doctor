@@ -1,7 +1,5 @@
 package cmd
 
-//TODO: rename gh-doctor to gh-ensure
-
 import (
 	"errors"
 	"fmt"
@@ -29,10 +27,13 @@ var sshOpts = &SshOptions{}
 
 var sshCmd = &cobra.Command{
 	Use:   "ssh",
-	Short: "Ensure ssh is working.",
-	Long: `Ensure ssh is working.
+	Short: "Ensure ssh works.",
+	Long: `Ensure ssh works.
 
-Creates and adds a ssh key to your Github user if needed.`,
+Verify ssh and if needed:
+ * create a private ssh key file
+ * configure ~/.ssh/config
+ * upload the ssh key to your Github user account`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sshOpts.KeyFile == "~/.ssh/[hostname]" {
 			sshOpts.KeyFile = "~/.ssh/" + sshOpts.Hostname
