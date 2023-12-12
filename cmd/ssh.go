@@ -35,7 +35,7 @@ Verify ssh and if needed:
  * add the github host to ~/.ssh/config
  * upload the ssh key to your Github user account
 
-Example entry in ~/.ssh/config:
+Example entry added to ~/.ssh/config:
 
 Host github.com
   AddKeysToAgent yes
