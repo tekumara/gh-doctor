@@ -32,8 +32,17 @@ var sshCmd = &cobra.Command{
 
 Verify ssh and if needed:
  * create a private ssh key file
- * configure ~/.ssh/config
- * upload the ssh key to your Github user account`,
+ * add the github host to ~/.ssh/config
+ * upload the ssh key to your Github user account
+
+Example entry in ~/.ssh/config:
+
+Host github.com
+  AddKeysToAgent yes
+  UseKeychain yes
+  IdentityFile ~/.ssh/github.com
+
+ `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sshOpts.KeyFile == "~/.ssh/[hostname]" {
 			sshOpts.KeyFile = "~/.ssh/" + sshOpts.Hostname

@@ -1,6 +1,6 @@
 # Github Doctor
 
-[Github CLI](https://github.com/cli/cli) extension to create and upload github ssh keys and auth tokens (or rotate existing credentials).
+[Github CLI](https://github.com/cli/cli) extension to set up github ssh keys and auth tokens (or rotate existing credentials).
 
 Commands are idempotent so they can be re-run which is useful in scripts.
 
@@ -16,7 +16,7 @@ gh doctor auth -s admin:public_key
 gh doctor ssh
 ```
 
-On a fresh machine this will create a token and set up ssh keys. Run this again to verify the existing token and ssh key.
+On a fresh machine this will create a token and set up ssh config and create and upload keys. Run this again to verify the existing token and ssh key.
 
 ## gh doctor auth
 
@@ -47,8 +47,15 @@ Ensure ssh works.
 
 Verify ssh and if needed:
  * create a private ssh key file
- * configure ~/.ssh/config
+ * add the github host to ~/.ssh/config
  * upload the ssh key to your Github user account
+
+Example entry in ~/.ssh/config:
+
+Host github.com
+  AddKeysToAgent yes
+  UseKeychain yes
+  IdentityFile ~/.ssh/github.com
 
 Usage:
   gh doctor ssh [flags]
