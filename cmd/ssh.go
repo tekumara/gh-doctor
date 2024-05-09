@@ -158,7 +158,7 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 	return nil
 }
 
-var regexSshSuccess = regexp.MustCompile(`Hi (.*)! You've successfully authenticated`)
+var regexSshSuccess = regexp.MustCompile(`Hi (.*)!`)
 var regexAcceptedKey = regexp.MustCompile(`Server accepts key: .*`)
 
 // Authenticate to github using ssh.
