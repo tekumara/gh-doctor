@@ -1,15 +1,17 @@
 module github.com/tekumara/gh-doctor
 
-go 1.20
+go 1.21
+
+toolchain go1.21.6
 
 require (
+	github.com/kevinburke/ssh_config v1.2.0
 	github.com/spf13/cobra v1.7.0
 	golang.org/x/crypto v0.14.0
 )
 
 require (
 	github.com/aymanbagabas/go-osc52 v1.0.3 // indirect
-	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 )
