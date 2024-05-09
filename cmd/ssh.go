@@ -118,7 +118,7 @@ func ensureSsh(opts *SshOptions) error {
 		return err
 	}
 
-	if err := addKey(keyFile+".pub", opts.Hostname, comment); err != nil {
+	if err := addKey(client, keyFile+".pub", comment); err != nil {
 		return err
 	}
 
@@ -278,9 +278,14 @@ func ensureKeyFileExists(keyFile string, comment string) error {
 	}
 }
 
-func addKey(keyFile string, hostname string, title string) error {
-	args := []string{"ssh-key", "add", keyFile, "-t", title}
-	err := util.ExecGhInteractiveWithEnv([]string{fmt.Sprintf("GH_HOST=%s", hostname)}, args...)
+func addKey(client *api.RESTClient, keyFile string, title string) error {
+	f, err := os.Open(keyFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = util.UploadKey(client, f, title)
 	return err
 }
 

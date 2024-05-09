@@ -1,9 +1,13 @@
 package util
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -57,5 +61,48 @@ func UserKeys(client *api.RESTClient) ([]SshKey, error) {
 
 func DeleteKey(client *api.RESTClient, keyId int) error {
 	err := client.Delete(fmt.Sprintf("user/keys/%d", keyId), nil)
+	return err
+}
+
+// idempotently upload ssh key
+// adapted from https://github.com/cli/cli/blob/f11f0966959080169dfa7604d8a1a3a60170f417/pkg/cmd/ssh-key/add/http.go#L17
+func UploadKey(client *api.RESTClient, keyFile io.Reader, title string) error {
+
+	keyBytes, err := io.ReadAll(keyFile)
+	if err != nil {
+		return err
+	}
+
+	keyString := string(keyBytes)
+	splitKey := strings.Fields(keyString)
+	if len(splitKey) < 2 {
+		return errors.New("key is not in a valid format")
+	}
+
+	keyToCompare := splitKey[0] + " " + splitKey[1]
+
+	keys, err := UserKeys(client)
+	if err != nil {
+		return err
+	}
+
+	for _, k := range keys {
+		if k.Key == keyToCompare {
+			return nil
+		}
+	}
+
+	payload := map[string]string{
+		"title": title,
+		"key":   keyString,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	err = client.Post("user/keys", bytes.NewBuffer(payloadBytes), nil)
+
 	return err
 }
