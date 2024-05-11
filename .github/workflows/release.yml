@@ -1,14 +1,37 @@
 name: release
 on:
   push:
-    tags:
-      - "v*"
-permissions:
-  contents: write
-
+    tags: ["*"]
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: cli/gh-extension-precompile@v1
+      - uses: actions/checkout@v4
+      - name: install gh-token
+        run: .github/workflows/install-gh-token.sh
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-ubuntu-latest-${{ hashFiles('**/go.sum') }}
+      - name: fetch app token
+        run: |
+            app_token=$(gh token generate --token-only \
+              --key <(echo "$APP_PRIVATE_KEY") \
+              --app-id 326256 \
+              --installation-id 37032952) || { echo "$app_token" && exit 42; }
+            echo "APP_TOKEN=$app_token" >> $GITHUB_ENV
+        env:
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      - name: goreleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          args: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

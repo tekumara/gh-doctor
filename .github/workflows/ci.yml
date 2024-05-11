@@ -15,6 +15,13 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version-file: 'go.mod'
+        go-version-file: go.mod
+    - name: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: go-${{ matrix.os }}-${{ hashFiles('**/go.sum') }}
     - name: Run tests
       run: go test -v ./...
