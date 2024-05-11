@@ -11,13 +11,6 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: go-ubuntu-latest-${{ hashFiles('**/go.sum') }}
       - name: fetch tap repo token
         id: tap-repo-token
         uses: tibdex/github-app-token@v2
