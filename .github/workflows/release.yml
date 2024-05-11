@@ -7,8 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: install gh-token
-        run: .github/workflows/install-gh-token.sh
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -20,18 +18,19 @@ jobs:
             ~/.cache/go-build
             ~/go/pkg/mod
           key: go-ubuntu-latest-${{ hashFiles('**/go.sum') }}
-      - name: fetch app token
-        run: |
-            app_token=$(gh token generate --token-only \
-              --key <(echo "$APP_PRIVATE_KEY") \
-              --app-id 326256 \
-              --installation-id 37032952) || { echo "$app_token" && exit 42; }
-            echo "APP_TOKEN=$app_token" >> $GITHUB_ENV
-        env:
-          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      - name: fetch tap repo token
+        id: tap-repo-token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          installation_retrieval_mode: id
+          # for https://github.com/tekumara/homebrew-tap
+          installation_retrieval_payload: 37032952
       - name: goreleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           args: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_REPO_TOKEN: ${{ steps.tap-repo-token.outputs.token }}

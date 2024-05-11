@@ -35,7 +35,7 @@ brews:
   - repository:
       owner: tekumara
       name: homebrew-tap
-      token: "{{ .Env.APP_TOKEN }}"
+      token: "{{ .Env.TAP_REPO_TOKEN }}"
     homepage: https://github.com/tekumara/gh-doctor
     description: Set up and rotate github ssh keys
 
