@@ -2,11 +2,16 @@ name: release
 on:
   push:
     tags: ["*"]
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # for goreleaser
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # for goreleaser changelog
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
