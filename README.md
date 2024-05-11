@@ -1,6 +1,6 @@
 # Github Doctor
 
-[Github CLI](https://github.com/cli/cli) extension to set up github ssh keys and auth tokens (or rotate existing credentials).
+[Github CLI](https://github.com/cli/cli) extension to set up new or rotate existing github ssh keys.
 
 Commands are idempotent so they can be re-run which is useful in scripts.
 
@@ -9,36 +9,11 @@ Commands are idempotent so they can be re-run which is useful in scripts.
 To ensure ssh is working:
 
 ```shell
-# ensure auth token exists with scope to add ssh key
-gh doctor auth -s admin:public_key
-
 # ensure ssh works, creating a new key if needed
 gh doctor ssh
 ```
 
 On a fresh machine this will create a token and set up ssh config and create and upload keys. Run this again to verify the existing token and ssh key.
-
-## gh doctor auth
-
-```
-Ensure a working gh auth token.
-
-Verify the auth token works and has any required scopes.
-
-If a new token is needed the auth flow is triggered.
-
-Usage:
-  gh doctor auth [flags]
-
-Flags:
-  -h, --hostname string   Github hostname (default "github.com")
-  -r, --refresh           Refresh existing token with minimum scopes + required scopes.
-                          Does not revoke the old token.
-  -s, --scopes strings    Required scopes. A new token is requested if these are missing.
-
-Global Flags:
-      --help   Show help for command
-```
 
 ## gh doctor ssh
 

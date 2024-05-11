@@ -88,7 +88,7 @@ func ensureSsh(opts *SshOptions) error {
 			if opts.Hostname != githubCom {
 				hostFlag = fmt.Sprintf(" -h %s ", opts.Hostname)
 			}
-			return fmt.Errorf("%w\n  Please run: gh doctor auth %s-s admin:public_key", err, hostFlag)
+			return fmt.Errorf("%w\n  Please run: gh auth login %s-s admin:public_key", err, hostFlag)
 		}
 
 		return err
