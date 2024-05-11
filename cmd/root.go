@@ -18,7 +18,8 @@ Set up ssh and gh auth tokens.
 Commands are idempotent so they can be run in scripts.`,
 }
 
-func Execute() {
+func Execute(version string) {
+	rootCmd.Version = version
 	err := rootCmd.Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "X Error:", err.Error())

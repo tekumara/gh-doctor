@@ -21,8 +21,15 @@ THE SOFTWARE.
 */
 package main
 
-import "github.com/tekumara/gh-doctor/cmd"
+import (
+	"github.com/tekumara/gh-doctor/cmd"
+)
+
+// populated by goreleaser
+var (
+	version = "dev"
+)
 
 func main() {
-	cmd.Execute()
+	cmd.Execute(version)
 }
