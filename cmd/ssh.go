@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -81,7 +82,13 @@ func ensureSsh(opts *SshOptions) error {
 		}
 	}
 
-	client, err := util.NewClient(opts.Hostname)
+	ctx := context.Background()
+	token, err := util.FetchToken(ctx)
+	if err != nil {
+		return err
+	}
+
+	client, err := util.NewClient(opts.Hostname, token.AccessToken)
 	if err != nil {
 		if strings.Contains(err.Error(), "authentication token not found") {
 			hostFlag := ""

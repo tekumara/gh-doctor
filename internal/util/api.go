@@ -13,8 +13,8 @@ import (
 	"github.com/cli/go-gh/v2/pkg/api"
 )
 
-func NewClient(hostname string) (*api.RESTClient, error) {
-	return api.NewRESTClient(api.ClientOptions{Host: hostname, Timeout: 2 * time.Second})
+func NewClient(hostname string, authToken string) (*api.RESTClient, error) {
+	return api.NewRESTClient(api.ClientOptions{AuthToken: authToken, Host: hostname, Timeout: 2 * time.Second})
 }
 
 func FetchAuthenticatedUser(client *api.RESTClient) (string, error) {

@@ -11,6 +11,7 @@ require (
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	golang.org/x/oauth2 v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 )
 
