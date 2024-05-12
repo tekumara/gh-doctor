@@ -24,10 +24,6 @@ lint:
 tidy:
 	go mod tidy
 
-## examines Go source code and reports suspicious constructs
-vet:
-	go vet ./...
-
 ## run tests
 test:
 	go test -cover ./...

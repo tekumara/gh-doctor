@@ -11,3 +11,7 @@ linters:
     # non-default
     - gocritic
     - revive
+
+linters-settings:
+  govet:
+    enable: [nilness]
