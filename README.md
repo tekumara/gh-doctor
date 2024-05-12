@@ -1,23 +1,49 @@
 # GitHub Doctor
 
-[GitHub CLI](https://github.com/cli/cli) extension to set up new or rotate existing GitHub ssh keys.
+GitHub Doctor creates SSH keys and uploads them to your account. It can also rotate existing keys.
 
-Commands are idempotent so they can be re-run which is useful in scripts.
+Commands are idempotent and can be re-run. This makes GitHub Doctor easy to use in scripts.
 
-## Example
+## Install
 
-To ensure ssh is working:
+Using homebrew:
 
-```shell
-# ensure ssh works, creating a new key if needed
+```sh
+ brew install tekumara/tap/gh-doctor
+```
+
+As a [GitHub CLI](https://github.com/cli/cli) extension:
+
+```sh
+gh extension install tekumara/gh-doctor
+```
+
+## Usage
+
+To ensure SSH is working, creating a new key if needed:
+
+```sh
+gh-doctor ssh
+```
+
+Or via the GitHub CLI extension:
+
+```sh
 gh doctor ssh
 ```
 
-On a fresh machine this will create a token and set up ssh config and create and upload keys. Run this again to verify the existing token and ssh key.
+On a fresh machine this will:
 
-## gh doctor ssh
+1. Fetch an OAuth token for the Github Doctor OAuth app. Will open a browser window to authenticate. This token is used once and and not stored anywhere.
+1. [Create a new SSH key and configure your SSH config](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
+1. [Upload the key to your account](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account).
+
+Run this again to verify the SSH key. Because the key exists it will be verified rather than creating a new key. To rotate an existing key use the `-r` flag.
+
+## Help
 
 ```
+❯ gh-doctor ssh --help
 Ensure ssh works.
 
 Verify ssh and if needed:
