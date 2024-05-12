@@ -27,17 +27,17 @@ var (
 		// https://datatracker.ietf.org/doc/html/rfc6749#section-2.1
 		ClientSecret: "4916902e0ccc6ad9074063aca1e3e26532047751",
 		Endpoint:     endpoints.GitHub,
-		Scopes: []string{"admin:public_key"},
+		Scopes:       []string{"admin:public_key"},
 	}
 )
 
 var html string = `<!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>Github Doctor authentication success</title>
+	<title>GitHub Doctor authentication success</title>
 </head>
 <body>
-<p>Success. Github Doctor has authenticated. You may close this page.</p>
+<p>Success. GitHub Doctor has authenticated. You may close this page.</p>
 <p style="font-style: italic">&mdash;<a href="https://github.com/tekumara/gh-doctor">gh-doctor</a></p>
 </body>
 </html>`

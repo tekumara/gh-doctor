@@ -19,9 +19,10 @@ import (
 )
 
 type SshOptions struct {
-	Hostname string
-	KeyFile  string
-	Rotate   bool
+	Hostname   string
+	UseGhToken bool
+	KeyFile    string
+	Rotate     bool
 }
 
 var sshOpts = &SshOptions{}
@@ -32,9 +33,11 @@ var sshCmd = &cobra.Command{
 	Long: `Ensure ssh works.
 
 Verify ssh and if needed:
- * create a private ssh key file
- * add the github host to ~/.ssh/config
- * upload the ssh key to your Github user account
+ * Fetch a token using the Github Doctor OAuth app with scope to create SSH keys.
+   This token is used once and not stored anywhere.
+ * Create a private ssh key file.
+ * Add the GitHub host to ~/.ssh/config.
+ * Upload the ssh key to your GitHub user account.
 
 Example entry added to ~/.ssh/config:
 
@@ -43,6 +46,7 @@ Host github.com
   UseKeychain yes
   IdentityFile ~/.ssh/github.com
 
+During verification any SSH agent identities are removed in case incorrect keys were loaded.
  `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if sshOpts.KeyFile == "~/.ssh/[hostname]" {
@@ -54,9 +58,18 @@ Host github.com
 
 func init() {
 	rootCmd.AddCommand(sshCmd)
-	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "Github hostname")
+	sshCmd.Flags().BoolVarP(&sshOpts.UseGhToken, "ghtoken", "g", false, "Use GH_TOKEN env var then GitHub CLI for token. Useful for GHES hosts without the GitHub Doctor OAuth app.")
+	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "GitHub hostname")
 	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "Private key file")
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
+}
+
+func hostFlag(opts *SshOptions) string {
+	hostFlag := ""
+	if opts.Hostname != githubCom {
+		hostFlag = fmt.Sprintf("-h %s ", opts.Hostname)
+	}
+	return hostFlag
 }
 
 func ensureSsh(opts *SshOptions) error {
@@ -82,20 +95,20 @@ func ensureSsh(opts *SshOptions) error {
 		}
 	}
 
-	ctx := context.Background()
-	token, err := util.FetchToken(ctx)
-	if err != nil {
-		return err
+	var accessToken string
+	if !opts.UseGhToken {
+		ctx := context.Background()
+		token, err := util.FetchToken(ctx)
+		if err != nil {
+			return err
+		}
+		accessToken = token.AccessToken
 	}
 
-	client, err := util.NewClient(opts.Hostname, token.AccessToken)
+	client, err := util.NewClient(opts.Hostname, accessToken)
 	if err != nil {
 		if strings.Contains(err.Error(), "authentication token not found") {
-			hostFlag := ""
-			if opts.Hostname != githubCom {
-				hostFlag = fmt.Sprintf(" -h %s ", opts.Hostname)
-			}
-			return fmt.Errorf("%w\n  Please run: gh auth login %s-s admin:public_key", err, hostFlag)
+			return fmt.Errorf("%w\n  Please run: gh auth login %s-s admin:public_key", err, hostFlag(opts))
 		}
 
 		return err
@@ -106,6 +119,24 @@ func ensureSsh(opts *SshOptions) error {
 	}
 
 	fmt.Printf("✓ Authenticated to %s as %s using token\n", opts.Hostname, username)
+
+	if opts.UseGhToken {
+		scopes, err := util.FetchScopes(client)
+		if err != nil {
+			if httpErr, ok := err.(*api.HTTPError); !ok || httpErr.StatusCode != 401 {
+				return err
+			}
+
+			// we have bad (eg: revoked) credentials
+			return fmt.Errorf("%w\n  Invalid token", err)
+		}
+
+		scopesSlice := strings.Split(strings.ReplaceAll(scopes, " ", ""), ",")
+		missing := util.Missing(scopesSlice, []string{"admin:public_key"})
+		if missing != nil {
+			return fmt.Errorf("token is missing the scope admin:public_key\nPlease run: gh auth refresh %s-s admin:public_key", hostFlag(opts))
+		}
+	}
 
 	keyFile := expand(opts.KeyFile)
 

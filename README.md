@@ -1,6 +1,6 @@
-# Github Doctor
+# GitHub Doctor
 
-[Github CLI](https://github.com/cli/cli) extension to set up new or rotate existing github ssh keys.
+[GitHub CLI](https://github.com/cli/cli) extension to set up new or rotate existing GitHub ssh keys.
 
 Commands are idempotent so they can be re-run which is useful in scripts.
 
@@ -21,9 +21,11 @@ On a fresh machine this will create a token and set up ssh config and create and
 Ensure ssh works.
 
 Verify ssh and if needed:
- * create a private ssh key file
- * add the github host to ~/.ssh/config
- * upload the ssh key to your Github user account
+ * Fetch a token using the Github Doctor OAuth app with scope to create SSH keys.
+   This token is used once and not stored anywhere.
+ * Create a private ssh key file.
+ * Add the GitHub host to ~/.ssh/config.
+ * Upload the ssh key to your GitHub user account.
 
 Example entry added to ~/.ssh/config:
 
@@ -32,11 +34,14 @@ Host github.com
   UseKeychain yes
   IdentityFile ~/.ssh/github.com
 
+During verification any SSH agent identities are removed in case incorrect keys were loaded.
+
 Usage:
-  gh doctor ssh [flags]
+  gh-doctor ssh [flags]
 
 Flags:
-  -h, --hostname string   Github hostname (default "github.com")
+  -g, --ghtoken           Use GH_TOKEN env var then GitHub CLI for token. Useful for GHES hosts without the GitHub Doctor OAuth app.
+  -h, --hostname string   GitHub hostname (default "github.com")
   -k, --keyfile string    Private key file (default "~/.ssh/[hostname]")
   -r, --rotate            Rotate existing key (if any)
 

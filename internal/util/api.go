@@ -14,6 +14,8 @@ import (
 )
 
 func NewClient(hostname string, authToken string) (*api.RESTClient, error) {
+	// if authToken is empty string then GH_TOKEN, GITHUB_TOKEN etc. env vars are tried before
+	// asking the gh cli for a token
 	return api.NewRESTClient(api.ClientOptions{AuthToken: authToken, Host: hostname, Timeout: 2 * time.Second})
 }
 
