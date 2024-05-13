@@ -33,7 +33,7 @@ var sshCmd = &cobra.Command{
 	Long: `Ensure ssh works.
 
 Verify ssh and if needed:
- * Fetch a token using the Github Doctor OAuth app with scope to create SSH keys.
+ * Fetch a token using the gh-doctor OAuth app with scope to create SSH keys.
    This token is used once and not stored anywhere.
  * Create a private ssh key file.
  * Add the GitHub host to ~/.ssh/config.
@@ -58,7 +58,7 @@ During verification any SSH agent identities are removed in case incorrect keys 
 
 func init() {
 	rootCmd.AddCommand(sshCmd)
-	sshCmd.Flags().BoolVarP(&sshOpts.UseGhToken, "ghtoken", "g", false, "Use GH_TOKEN env var then GitHub CLI for token. Useful for GHES hosts without the GitHub Doctor OAuth app.")
+	sshCmd.Flags().BoolVarP(&sshOpts.UseGhToken, "ghtoken", "g", false, "Use GH_TOKEN env var then GitHub CLI for token. Useful for GHES hosts without the gh-doctor OAuth app.")
 	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "GitHub hostname")
 	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "Private key file")
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")

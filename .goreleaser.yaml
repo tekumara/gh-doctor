@@ -33,7 +33,7 @@ brews:
       token: "{{ .Env.TAP_REPO_TOKEN }}"
     directory: Formula
     homepage: https://github.com/tekumara/gh-doctor
-    description: GitHub Doctor creates and rotates GitHub SSH keys
+    description: GitHub Doctor creates SSH keys and uploads them to your account
 
 changelog:
   sort: asc
