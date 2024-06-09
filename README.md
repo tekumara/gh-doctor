@@ -118,3 +118,13 @@ Global Flags:
 If your organisation uses SAML single sign-on [authorize your SSH key](https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-saml-single-sign-on/authorizing-an-ssh-key-for-use-with-saml-single-sign-on) for use with the organisation.
 
 By default [access via third-party applications](https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/about-oauth-app-access-restrictions) to organisation resources is restricted. Request the gh-doctor OAuth app be [approved for use in your organisation](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps).
+
+## FAQ
+
+### How does GitHub Doctor compare to the GitHub CLI?
+
+The GitHub CLI (gh) can [add an existing ssh key](https://cli.github.com/manual/gh_ssh-key_add) to your account. However:
+
+- gh is less secure. GitHub can only generate [long-lived OAuth tokens](https://github.com/cli/cli/issues/5924). gh persists these in the keychain, but `gh auth token` will [return the token in plaintext](https://github.com/cli/cli/issues/8237) bypassing any keychain security. Whilst gh-doctor must also use long-lived OAuth tokens, they don't leave memory and are never persisted.
+- gh doesn't modify your ssh config, or load the key into the ssh agent as per the [GitHub docs](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
+- gh doesn't diagnose and fix misconfigurations. Nor does it run idempotently.

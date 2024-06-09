@@ -11,7 +11,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "gh-doctor",
 	Short: "Set up ssh and gh auth tokens.",
-	Long: `Github Doctor
+	Long: `GitHub Doctor
 
 Set up ssh and gh auth tokens.
 
