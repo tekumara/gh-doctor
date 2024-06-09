@@ -18,14 +18,14 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-type SshOptions struct {
+type SSHOptions struct {
 	Hostname   string
 	UseGhToken bool
 	KeyFile    string
 	Rotate     bool
 }
 
-var sshOpts = &SshOptions{}
+var sshOpts = &SSHOptions{}
 
 var sshCmd = &cobra.Command{
 	Use:   "ssh",
@@ -52,7 +52,7 @@ During verification any SSH agent identities are removed in case incorrect keys 
 		if sshOpts.KeyFile == "~/.ssh/[hostname]" {
 			sshOpts.KeyFile = "~/.ssh/" + sshOpts.Hostname
 		}
-		return ensureSsh(sshOpts)
+		return ensureSSH(sshOpts)
 	},
 }
 
@@ -64,7 +64,7 @@ func init() {
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
 }
 
-func hostFlag(opts *SshOptions) string {
+func hostFlag(opts *SSHOptions) string {
 	hostFlag := ""
 	if opts.Hostname != githubCom {
 		hostFlag = fmt.Sprintf("-h %s ", opts.Hostname)
@@ -72,20 +72,20 @@ func hostFlag(opts *SshOptions) string {
 	return hostFlag
 }
 
-func ensureSsh(opts *SshOptions) error {
+func ensureSSH(opts *SSHOptions) error {
 	sshAuthSock := os.Getenv("SSH_AUTH_SOCK")
 	if sshAuthSock == "" {
 		// no ssh agent
 		fmt.Println("SSH_AUTH_SOCK is not set. SSH agent won't be used.")
 	} else {
 		// in case ssh-agent has loaded incorrect keys, lets start afresh
-		if err := removeSshAgentIdentities(sshAuthSock); err != nil {
+		if err := removeSSHAgentIdentities(sshAuthSock); err != nil {
 			return err
 		}
 	}
 
 	if !opts.Rotate {
-		authed, err := ensureSshAuth(opts.Hostname)
+		authed, err := ensureSSHAuth(opts.Hostname)
 		if err != nil {
 			return err
 		}
@@ -160,11 +160,11 @@ func ensureSsh(opts *SshOptions) error {
 		return err
 	}
 
-	if err := updateSshConfig("~/.ssh/config", keyFile, opts.Hostname); err != nil {
+	if err := updateSSHConfig("~/.ssh/config", keyFile, opts.Hostname); err != nil {
 		return err
 	}
 
-	_, err = ensureSshAuth(opts.Hostname)
+	_, err = ensureSSHAuth(opts.Hostname)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func ensureSsh(opts *SshOptions) error {
 	return nil
 }
 
-func removeSshAgentIdentities(sshAuthSock string) error {
+func removeSSHAgentIdentities(sshAuthSock string) error {
 	// Connect to the SSH agent using the SSH_AUTH_SOCK socket
 	agentConn, err := net.Dial("unix", sshAuthSock)
 	if err != nil {
@@ -199,7 +199,7 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 	return nil
 }
 
-var regexSshSuccess = regexp.MustCompile(`Hi (.*)!`)
+var regexSSHSuccess = regexp.MustCompile(`Hi (.*)!`)
 var regexAcceptedKey = regexp.MustCompile(`Server accepts key: .*`)
 
 // Authenticate to github using ssh.
@@ -207,7 +207,7 @@ var regexAcceptedKey = regexp.MustCompile(`Server accepts key: .*`)
 // true, nil = success
 // false, nil = permission denied
 // false, error = timeout, can't resolve hostname etc.
-func ensureSshAuth(hostname string) (bool, error) {
+func ensureSSHAuth(hostname string) (bool, error) {
 
 	// exec ssh rather than using the golang ssh client to mimic git and use the user's ssh config
 	cmd := exec.Command("ssh", "-v", "-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=2", "git@"+hostname)
@@ -220,7 +220,7 @@ func ensureSshAuth(hostname string) (bool, error) {
 		return false, nil
 	}
 
-	successMatch := regexSshSuccess.FindStringSubmatch(sout)
+	successMatch := regexSSHSuccess.FindStringSubmatch(sout)
 	if len(successMatch) > 0 {
 
 		keyMatches := regexAcceptedKey.FindString(sout)
@@ -332,7 +332,7 @@ func addKey(client *api.RESTClient, keyFile string, title string) error {
 // upsert ssh config with host to use keyfile
 // when adding a new host, set AddKeysToAgent and UseKeychain to yes
 // as per https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-func updateSshConfig(sshConfigPath string, keyFile string, hostname string) error {
+func updateSSHConfig(sshConfigPath string, keyFile string, hostname string) error {
 	// open ssh config, creating it if it doesn't exist
 	f, err := os.OpenFile(expand(sshConfigPath), os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
@@ -348,20 +348,20 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 
 	host, identifyFileNode := findHostAndKey(sshConfigPath, cfg, hostname, "IdentityFile")
 
-	var newSshConfig, msg string
+	var newSSHConfig, msg string
 	if identifyFileNode != nil {
 		if identifyFileNode.Value == keyFile {
 			msg = fmt.Sprintf("✓ Host %s in %s already configured\n", hostname, sshConfigPath)
 		} else {
 			identifyFileNode.Value = keyFile
 			msg = fmt.Sprintf("✓ Updated Host %s in %s to use key file\n", hostname, sshConfigPath)
-			newSshConfig = cfg.String()
+			newSSHConfig = cfg.String()
 		}
 	} else if host != nil {
 		identifyFileNode = &ssh_config.KV{Key: "IdentityFile", Value: keyFile}
 		// prepend to preserve comments/whitespace between hosts
 		host.Nodes = append([]ssh_config.Node{identifyFileNode}, host.Nodes...)
-		newSshConfig = cfg.String()
+		newSSHConfig = cfg.String()
 		msg = fmt.Sprintf("✓ Added IdentityFile to Host %s in %s\n", hostname, sshConfigPath)
 	} else { // host == nil
 		// add new node ourselves as strings rather than a new Node so we can
@@ -375,7 +375,7 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 			// separator new host from previous hosts
 			separator = "\n"
 		}
-		newSshConfig = fmt.Sprintf(`%s%sHost %s
+		newSSHConfig = fmt.Sprintf(`%s%sHost %s
   AddKeysToAgent yes
   UseKeychain yes
   IdentityFile %s
@@ -383,20 +383,20 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 		msg = fmt.Sprintf("✓ Added Host %s to %s\n", hostname, sshConfigPath)
 	}
 
-	if newSshConfig != "" {
+	if newSSHConfig != "" {
 		_, err = f.Seek(0, 0)
 		if err != nil {
 			return err
 		}
 
-		_, err = f.WriteString(newSshConfig)
+		_, err = f.WriteString(newSSHConfig)
 		if err != nil {
 			return err
 		}
 
 		// newSshConfig may be smaller than the existing file contents
 		// so truncate to the new size
-		err = f.Truncate(int64(len(newSshConfig)))
+		err = f.Truncate(int64(len(newSSHConfig)))
 		if err != nil {
 			return err
 		}

@@ -47,7 +47,7 @@ func FetchScopes(client *api.RESTClient) (string, error) {
 	return resp.Header.Get("X-Oauth-Scopes"), nil
 }
 
-type SshKey struct {
+type SSHKey struct {
 	ID        int
 	Key       string
 	Title     string
@@ -55,14 +55,14 @@ type SshKey struct {
 }
 
 // Return keys for the authenticated user
-func UserKeys(client *api.RESTClient) ([]SshKey, error) {
-	var keys []SshKey
+func UserKeys(client *api.RESTClient) ([]SSHKey, error) {
+	var keys []SSHKey
 	err := client.Get("user/keys?per_page=100", &keys)
 	return keys, err
 }
 
-func DeleteKey(client *api.RESTClient, keyId int) error {
-	err := client.Delete(fmt.Sprintf("user/keys/%d", keyId), nil)
+func DeleteKey(client *api.RESTClient, keyID int) error {
+	err := client.Delete(fmt.Sprintf("user/keys/%d", keyID), nil)
 	return err
 }
 

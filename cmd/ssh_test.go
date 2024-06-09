@@ -14,28 +14,28 @@ func TestUpdateSshConfig(t *testing.T) {
 		sshConfig         string
 		keyFile           string
 		hostname          string
-		expectedSshConfig string
+		expectedSSHConfig string
 	}{
 		{
 			name:              "CreateNewSshConfig",
 			sshConfig:         "",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
-			expectedSshConfig: "Host github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile id_rsa\n",
+			expectedSSHConfig: "Host github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile id_rsa\n",
 		},
 		{
 			name:              "AddHostToExistingSshConfig",
 			sshConfig:         "Host foo.bar\n  IdentityFile top_secret\n",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
-			expectedSshConfig: "Host foo.bar\n  IdentityFile top_secret\n\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile id_rsa\n",
+			expectedSSHConfig: "Host foo.bar\n  IdentityFile top_secret\n\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile id_rsa\n",
 		},
 		{
 			name:              "AlreadyExistsNoOp",
 			sshConfig:         "Host github.com\n  IdentityFile id_rsa\n",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
-			expectedSshConfig: "Host github.com\n  IdentityFile id_rsa\n",
+			expectedSSHConfig: "Host github.com\n  IdentityFile id_rsa\n",
 		},
 		{
 			name: "ExistingHostUpdateIdentityFile",
@@ -43,7 +43,7 @@ func TestUpdateSshConfig(t *testing.T) {
 			sshConfig:         "Host github.com\n  IdentityFile yeolde.key\n",
 			keyFile:           "new.key",
 			hostname:          "github.com",
-			expectedSshConfig: "Host github.com\n  IdentityFile new.key\n",
+			expectedSSHConfig: "Host github.com\n  IdentityFile new.key\n",
 		},
 		{
 			name:      "ExistingHostUpdateAddIdentityFileBetweenHosts",
@@ -51,7 +51,7 @@ func TestUpdateSshConfig(t *testing.T) {
 			keyFile:   "id_rsa",
 			hostname:  "github.com",
 			// NB: IdentityFile isn't indented see https://github.com/kevinburke/ssh_config/issues/12
-			expectedSshConfig: "Host github.com\nIdentityFile id_rsa\n  AddKeysToAgent yes\n\nHost foo.bar\n",
+			expectedSSHConfig: "Host github.com\nIdentityFile id_rsa\n  AddKeysToAgent yes\n\nHost foo.bar\n",
 		},
 	}
 
@@ -78,7 +78,7 @@ func TestUpdateSshConfig(t *testing.T) {
 			defer os.Remove(sshConfigPath)
 
 			// Do update
-			if err := updateSshConfig(sshConfigPath, test.keyFile, test.hostname); err != nil {
+			if err := updateSSHConfig(sshConfigPath, test.keyFile, test.hostname); err != nil {
 				t.Fatal(err)
 			}
 
@@ -87,8 +87,8 @@ func TestUpdateSshConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if string(content) != test.expectedSshConfig {
-				t.Errorf("\ngot  %q\nwant %q", string(content), test.expectedSshConfig)
+			if string(content) != test.expectedSSHConfig {
+				t.Errorf("\ngot  %q\nwant %q", string(content), test.expectedSSHConfig)
 			}
 
 		})
