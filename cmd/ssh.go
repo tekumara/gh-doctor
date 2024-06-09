@@ -48,7 +48,7 @@ Host github.com
 
 During verification any SSH agent identities are removed in case incorrect keys were loaded.
  `,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		if sshOpts.KeyFile == "~/.ssh/[hostname]" {
 			sshOpts.KeyFile = "~/.ssh/" + sshOpts.Hostname
 		}
@@ -190,7 +190,10 @@ func removeSshAgentIdentities(sshAuthSock string) error {
 		fmt.Println("ℹ No identities present in SSH agent.")
 	} else {
 		fmt.Println("ℹ Removing existing identities from SSH agent.")
-		sshAgent.RemoveAll()
+		err = sshAgent.RemoveAll()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -305,15 +308,14 @@ func ensureKeyFileExists(keyFile string, comment string) error {
 		out, err := cmd.Output()
 		fmt.Println(string(out))
 		return err
-	} else {
-		// display fingerprint of existing key for easy debugging
-		fmt.Printf("✓ Key file %s: ", keyFile)
-
-		cmd := exec.Command("ssh-keygen", "-lf", keyFile)
-		out, err := cmd.Output()
-		fmt.Print(string(out))
-		return err
 	}
+	// display fingerprint of existing key for easy debugging
+	fmt.Printf("✓ Key file %s: ", keyFile)
+
+	cmd := exec.Command("ssh-keygen", "-lf", keyFile)
+	out, err := cmd.Output()
+	fmt.Print(string(out))
+	return err
 }
 
 func addKey(client *api.RESTClient, keyFile string, title string) error {
@@ -355,7 +357,7 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 			msg = fmt.Sprintf("✓ Updated Host %s in %s to use key file\n", hostname, sshConfigPath)
 			newSshConfig = cfg.String()
 		}
-	} else if host != nil && identifyFileNode == nil {
+	} else if host != nil {
 		identifyFileNode = &ssh_config.KV{Key: "IdentityFile", Value: keyFile}
 		// prepend to preserve comments/whitespace between hosts
 		host.Nodes = append([]ssh_config.Node{identifyFileNode}, host.Nodes...)
@@ -394,7 +396,7 @@ func updateSshConfig(sshConfigPath string, keyFile string, hostname string) erro
 
 		// newSshConfig may be smaller than the existing file contents
 		// so truncate to the new size
-		f.Truncate(int64(len(newSshConfig)))
+		err = f.Truncate(int64(len(newSshConfig)))
 		if err != nil {
 			return err
 		}
@@ -417,10 +419,9 @@ outer:
 					}
 					fmt.Printf("ℹ Host %sin %s ignored because it includes other hosts\n", patterns, sshConfigPath)
 					break
-				} else {
-					host = h
-					break outer
 				}
+				host = h
+				break outer
 			}
 		}
 	}

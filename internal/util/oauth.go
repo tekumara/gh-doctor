@@ -31,7 +31,7 @@ var (
 	}
 )
 
-var html string = `<!DOCTYPE html>
+var html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<title>GitHub Doctor authentication success</title>

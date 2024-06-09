@@ -90,7 +90,7 @@ func UploadKey(client *api.RESTClient, keyFile io.Reader, title string) error {
 
 	for _, k := range keys {
 		if k.Key == keyToCompare {
-			fmt.Print(fmt.Sprintf("✓ Key %s already added to github user\n", title))
+			fmt.Printf("✓ Key %s already added to github user\n", title)
 			return nil
 		}
 	}
@@ -110,6 +110,6 @@ func UploadKey(client *api.RESTClient, keyFile io.Reader, title string) error {
 		return err
 	}
 
-	fmt.Print(fmt.Sprintf("✓ Key %s added to github user\n", title))
+	fmt.Printf("✓ Key %s added to github user\n", title)
 	return nil
 }
