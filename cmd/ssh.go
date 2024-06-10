@@ -26,7 +26,7 @@ type SSHOptions struct {
 	UseGhToken     bool
 	KeyFile        string
 	Rotate         bool
-	ManuallyAddKey bool
+	UseDoctorToken bool
 }
 
 var sshOpts = &SSHOptions{}
@@ -41,7 +41,7 @@ Verify ssh and if needed:
    This token is used once and not stored anywhere.
  * Create a private ssh key file.
  * Add the GitHub host to ~/.ssh/config.
- * Upload the ssh key to your GitHub user account.
+ * Upload the ssh key to your GitHub user account (manually or using an OAuth app).
 
 Example entry added to ~/.ssh/config:
 
@@ -62,11 +62,11 @@ During verification any SSH agent identities are removed in case incorrect keys 
 
 func init() {
 	rootCmd.AddCommand(sshCmd)
-	sshCmd.Flags().BoolVarP(&sshOpts.UseGhToken, "ghtoken", "g", false, "Use GH_TOKEN env var then GitHub CLI for token")
+	sshCmd.Flags().BoolVarP(&sshOpts.UseDoctorToken, "doctoken", "d", false, "Use the GitHub Doctor OAuth app to upload the key")
+	sshCmd.Flags().BoolVarP(&sshOpts.UseGhToken, "ghtoken", "g", false, "Use GH_TOKEN env var then GitHub CLI OAuth app to upload the key")
 	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "GitHub hostname")
 	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "Private key file")
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
-	sshCmd.Flags().BoolVarP(&sshOpts.ManuallyAddKey, "manual", "m", false, "Prompt to manually add the key to your GitHub account")
 }
 
 func hostFlag(opts *SSHOptions) string {
@@ -101,7 +101,7 @@ func ensureSSH(opts *SSHOptions) error {
 	}
 
 	var client *api.RESTClient
-	if !opts.ManuallyAddKey {
+	if opts.UseDoctorToken || opts.UseGhToken {
 		var err error
 		client, err = ghClient(opts)
 		if err != nil {
@@ -377,12 +377,12 @@ func manualPrompt(hostname string, keyFile string, title string) error {
 
 	var urlSettingSSHNew = fmt.Sprintf("https://%s/settings/ssh/new", hostname)
 	fmt.Printf(`
-Manually add your SSH public key to Github
-------------------------------------------
+Add new SSH Key (manual instructions)
+-------------------------------------
 
 1. Press Enter to open %s
 2. In the "Title" field, add a descriptive label for the new key, eg: %s
-3. In the "Key" field, paste the following public key (this has already been copied to your clipboard):
+3. In the "Key" field, paste the following public key (this has been copied to your clipboard):
 
 %s
 4. Click "Add SSH key"
