@@ -102,22 +102,35 @@ Usage:
   gh-doctor ssh [flags]
 
 Flags:
-  -g, --ghtoken           Use GH_TOKEN env var then GitHub CLI for token. Useful for GHES hosts without the gh-doctor OAuth app.
+  -g, --ghtoken           Use GH_TOKEN env var then GitHub CLI for token
   -h, --hostname string   GitHub hostname (default "github.com")
   -k, --keyfile string    Private key file (default "~/.ssh/[hostname]")
+  -m, --manual            Prompt to manually add the key to your GitHub account
   -r, --rotate            Rotate existing key (if any)
 
 Global Flags:
       --help   Show help for command
 ```
 
+## Alternative methods of authentication
+
+You won't be able to use gh-doctor OAuth app to obtain a token:
+
+1. When using a Github Enterprise Server (GHES) host, or
+1. For organisations that have not approved the gh-doctor OAuth app (see below)
+
+In these cases you can either:
+
+1. use an existing token in the GH_TOKEN env var or the GitHub CLI to authenticate via the `-g` flag
+1. manually add the ssh key via the `-m` flag
+
 ## Troubleshooting
 
 ### I can authenticate but can't pull or push an organisation repo
 
-If your organisation uses SAML single sign-on [authorize your SSH key](https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-saml-single-sign-on/authorizing-an-ssh-key-for-use-with-saml-single-sign-on) for use with the organisation.
-
 By default [access via third-party applications](https://docs.github.com/en/organizations/managing-oauth-access-to-your-organizations-data/about-oauth-app-access-restrictions) to organisation resources is restricted. Request the gh-doctor OAuth app be [approved for use in your organisation](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-your-membership-in-organizations/requesting-organization-approval-for-oauth-apps).
+
+If your organisation uses SAML single sign-on [authorize your SSH key](https://docs.github.com/en/enterprise-cloud@latest/authentication/authenticating-with-saml-single-sign-on/authorizing-an-ssh-key-for-use-with-saml-single-sign-on) for use with the organisation.
 
 ## FAQ
 

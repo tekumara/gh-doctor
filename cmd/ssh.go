@@ -4,13 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/kevinburke/ssh_config"
 	"github.com/spf13/cobra"
@@ -19,10 +22,11 @@ import (
 )
 
 type SSHOptions struct {
-	Hostname   string
-	UseGhToken bool
-	KeyFile    string
-	Rotate     bool
+	Hostname       string
+	UseGhToken     bool
+	KeyFile        string
+	Rotate         bool
+	ManuallyAddKey bool
 }
 
 var sshOpts = &SSHOptions{}
@@ -58,10 +62,11 @@ During verification any SSH agent identities are removed in case incorrect keys 
 
 func init() {
 	rootCmd.AddCommand(sshCmd)
-	sshCmd.Flags().BoolVarP(&sshOpts.UseGhToken, "ghtoken", "g", false, "Use GH_TOKEN env var then GitHub CLI for token. Useful for GHES hosts without the gh-doctor OAuth app.")
+	sshCmd.Flags().BoolVarP(&sshOpts.UseGhToken, "ghtoken", "g", false, "Use GH_TOKEN env var then GitHub CLI for token")
 	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "GitHub hostname")
 	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "Private key file")
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
+	sshCmd.Flags().BoolVarP(&sshOpts.ManuallyAddKey, "manual", "m", false, "Prompt to manually add the key to your GitHub account")
 }
 
 func hostFlag(opts *SSHOptions) string {
@@ -95,55 +100,32 @@ func ensureSSH(opts *SSHOptions) error {
 		}
 	}
 
-	var accessToken string
-	if !opts.UseGhToken {
-		ctx := context.Background()
-		token, err := util.FetchToken(ctx)
+	var client *api.RESTClient
+	if !opts.ManuallyAddKey {
+		var err error
+		client, err = ghClient(opts)
 		if err != nil {
 			return err
-		}
-		accessToken = token.AccessToken
-	}
-
-	client, err := util.NewClient(opts.Hostname, accessToken)
-	if err != nil {
-		if strings.Contains(err.Error(), "authentication token not found") {
-			return fmt.Errorf("%w\n  Please run: gh auth login %s-s admin:public_key", err, hostFlag(opts))
-		}
-
-		return err
-	}
-	username, err := util.FetchAuthenticatedUser(client)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("✓ Authenticated to %s as %s using token\n", opts.Hostname, username)
-
-	if opts.UseGhToken {
-		scopes, err := util.FetchScopes(client)
-		if err != nil {
-			if httpErr, ok := err.(*api.HTTPError); !ok || httpErr.StatusCode != 401 {
-				return err
-			}
-
-			// we have bad (eg: revoked) credentials
-			return fmt.Errorf("%w\n  Invalid token", err)
-		}
-
-		scopesSlice := strings.Split(strings.ReplaceAll(scopes, " ", ""), ",")
-		missing := util.Missing(scopesSlice, []string{"admin:public_key"})
-		if missing != nil {
-			return fmt.Errorf("token is missing the scope admin:public_key\nPlease run: gh auth refresh %s-s admin:public_key", hostFlag(opts))
 		}
 	}
 
 	keyFile := expand(opts.KeyFile)
 
 	if opts.Rotate {
-		if err := ensureKeyDeleted(keyFile, client); err != nil {
+		if client != nil {
+			if err := ensureKeyDeletedFromGitHub(keyFile, client); err != nil {
+				return err
+			}
+		}
+
+		// TODO: ensure this works if the file has already been deleted
+		if err := os.Remove(keyFile); err != nil {
 			return err
 		}
+		if err := os.Remove(keyFile + ".pub"); err != nil {
+			return err
+		}
+		fmt.Println("ℹ Deleted existing key.")
 	}
 
 	localHostname, err := os.Hostname()
@@ -156,20 +138,74 @@ func ensureSSH(opts *SSHOptions) error {
 		return err
 	}
 
-	if err := addKey(client, keyFile+".pub", comment); err != nil {
-		return err
+	if client != nil {
+		if err := addKey(client, keyFile+".pub", comment); err != nil {
+			return err
+		}
+	} else {
+		if err := manualPrompt(opts.Hostname, keyFile+".pub", comment); err != nil  {
+			return err
+		}
 	}
 
 	if err := updateSSHConfig("~/.ssh/config", keyFile, opts.Hostname); err != nil {
 		return err
 	}
 
-	_, err = ensureSSHAuth(opts.Hostname)
+	authed, err := ensureSSHAuth(opts.Hostname)
 	if err != nil {
 		return err
 	}
+	if !authed {
+		return fmt.Errorf("permission denied trying ssh -vT git@%s", opts.Hostname)
+	}
 
 	return nil
+}
+
+func ghClient(opts *SSHOptions) (*api.RESTClient, error) {
+	var accessToken string
+	if !opts.UseGhToken {
+		ctx := context.Background()
+		token, err := util.FetchToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+		accessToken = token.AccessToken
+	}
+
+	client, err := util.NewClient(opts.Hostname, accessToken)
+	if err != nil {
+		if strings.Contains(err.Error(), "authentication token not found") {
+			return nil, fmt.Errorf("%w\n  Please run: gh auth login %s-s admin:public_key", err, hostFlag(opts))
+		}
+
+		return nil, err
+	}
+	username, err := util.FetchAuthenticatedUser(client)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("✓ Authenticated to %s as %s using token\n", opts.Hostname, username)
+
+	if opts.UseGhToken {
+		scopes, err := util.FetchScopes(client)
+		if err != nil {
+			if httpErr, ok := err.(*api.HTTPError); !ok || httpErr.StatusCode != 401 {
+				return nil, err
+			}
+			// we have bad (eg: revoked) credentials
+			return nil, fmt.Errorf("%w\n  Invalid token", err)
+		}
+
+		scopesSlice := strings.Split(strings.ReplaceAll(scopes, " ", ""), ",")
+		missing := util.Missing(scopesSlice, []string{"admin:public_key"})
+		if missing != nil {
+			return nil, fmt.Errorf("token is missing the scope admin:public_key\nPlease run: gh auth refresh %s-s admin:public_key", hostFlag(opts))
+		}
+	}
+	return client, nil
 }
 
 func removeSSHAgentIdentities(sshAuthSock string) error {
@@ -251,7 +287,7 @@ func expand(keyFile string) string {
 	return keyFile
 }
 
-func ensureKeyDeleted(keyFile string, client *api.RESTClient) error {
+func ensureKeyDeletedFromGitHub(keyFile string, client *api.RESTClient) error {
 	pubKey, err := loadPublicKey(keyFile + ".pub")
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -270,15 +306,7 @@ func ensureKeyDeleted(keyFile string, client *api.RESTClient) error {
 			}
 		}
 	}
-
-	if err := os.Remove(keyFile); err != nil {
-		return err
-	}
-	if err := os.Remove(keyFile + ".pub"); err != nil {
-		return err
-	}
-	fmt.Println("ℹ Deleted existing key.")
-	return err
+	return nil
 }
 
 func loadPublicKey(pubKeyFile string) (string, error) {
@@ -326,6 +354,62 @@ func addKey(client *api.RESTClient, keyFile string, title string) error {
 	defer f.Close()
 
 	err = util.UploadKey(client, f, title)
+	return err
+}
+
+func manualPrompt(hostname string, keyFile string, title string) error {
+	f, err := os.Open(keyFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	keyBytes, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+
+	keyString := string(keyBytes)
+
+	err = clipboard.WriteAll(keyString)
+	if err != nil {
+		return err
+	}
+
+	var urlSettingSSHNew = fmt.Sprintf("https://%s/settings/ssh/new", hostname)
+	fmt.Printf(`
+Manually add your SSH public key to Github
+------------------------------------------
+
+1. Press Enter to open %s
+2. In the "Title" field, add a descriptive label for the new key, eg: %s
+3. In the "Key" field, paste the following public key (this has already been copied to your clipboard):
+
+%s
+4. Click "Add SSH key"
+5. Delete any old SSH keys
+6. Return here and press Enter to continue
+`, urlSettingSSHNew, title, keyString)
+	_, err = fmt.Scanln() // wait for Enter Key
+	if err != nil {
+		return err
+	}
+
+	var open string
+	switch runtime.GOOS {
+	case "windows":
+		open = "start"
+	case "darwin":
+		open = "open"
+	default:
+		open = "xdg-open"
+	}
+	if _, err := exec.LookPath(open); err == nil {
+		err = exec.Command(open, urlSettingSSHNew).Run()
+		if err != nil {
+			return err
+		}
+	}
+	_, err = fmt.Scanln() // wait for Enter Key
 	return err
 }
 
