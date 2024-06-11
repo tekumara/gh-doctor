@@ -27,6 +27,7 @@ type SSHOptions struct {
 	KeyFile        string
 	Rotate         bool
 	UseDoctorToken bool
+	ConfigureSSO   bool
 }
 
 var sshOpts = &SSHOptions{}
@@ -67,6 +68,7 @@ func init() {
 	sshCmd.Flags().StringVarP(&sshOpts.Hostname, "hostname", "h", githubCom, "GitHub hostname")
 	sshCmd.Flags().StringVarP(&sshOpts.KeyFile, "keyfile", "k", "~/.ssh/[hostname]", "Private key file")
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
+	sshCmd.Flags().BoolVarP(&sshOpts.ConfigureSSO, "sso", "s", false, "Prompt to authorise the key for organisations using SAML SSO")
 }
 
 func hostFlag(opts *SSHOptions) string {
@@ -142,8 +144,13 @@ func ensureSSH(opts *SSHOptions) error {
 		if err := addKey(client, keyFile+".pub", comment); err != nil {
 			return err
 		}
+		if opts.ConfigureSSO {
+			if err := configureSSOPrompt(opts.Hostname); err != nil {
+				return err
+			}
+		}
 	} else {
-		if err := manualPrompt(opts.Hostname, keyFile+".pub", comment); err != nil  {
+		if err := manualPrompt(opts.Hostname, keyFile+".pub", comment, opts.ConfigureSSO); err != nil {
 			return err
 		}
 	}
@@ -357,7 +364,9 @@ func addKey(client *api.RESTClient, keyFile string, title string) error {
 	return err
 }
 
-func manualPrompt(hostname string, keyFile string, title string) error {
+const configureSSOInstruction = `Next to the newly added key click "Configure SSO" and authorize your Single sign-on organisations`
+
+func manualPrompt(hostname string, keyFile string, title string, configureSSO bool) error {
 	f, err := os.Open(keyFile)
 	if err != nil {
 		return err
@@ -370,12 +379,22 @@ func manualPrompt(hostname string, keyFile string, title string) error {
 
 	keyString := string(keyBytes)
 
-	err = clipboard.WriteAll(keyString)
-	if err != nil {
+	if err = clipboard.WriteAll(keyString); err != nil {
 		return err
 	}
 
-	var urlSettingSSHNew = fmt.Sprintf("https://%s/settings/ssh/new", hostname)
+	var urlSettingsSSHNew = fmt.Sprintf("https://%s/settings/ssh/new", hostname)
+
+	var configureSSOInstructionIndexed string
+	var nextInstructionIndex int
+	if configureSSO {
+		configureSSOInstructionIndexed = `
+5. ` + configureSSOInstruction
+		nextInstructionIndex = 6
+	} else {
+		nextInstructionIndex = 5
+	}
+
 	fmt.Printf(`
 Add new SSH Key (manual instructions)
 -------------------------------------
@@ -385,15 +404,44 @@ Add new SSH Key (manual instructions)
 3. In the "Key" field, paste the following public key (this has been copied to your clipboard):
 
 %s
-4. Click "Add SSH key"
-5. Delete any old SSH keys
-6. Return here and press Enter to continue
-`, urlSettingSSHNew, title, keyString)
-	_, err = fmt.Scanln() // wait for Enter Key
-	if err != nil {
+4. Click "Add SSH key"%s
+%d. Delete any old SSH keys
+%d. Return here and press Enter to continue
+`, urlSettingsSSHNew, title, keyString, configureSSOInstructionIndexed, nextInstructionIndex, nextInstructionIndex+1)
+	// wait for Enter Key
+	if _, err = fmt.Scanln(); err != nil {
 		return err
 	}
+	if err := openBrowser(urlSettingsSSHNew); err != nil {
+		return err
+	}
+	_, err = fmt.Scanln() // wait for Enter Key
+	return err
+}
 
+func configureSSOPrompt(hostname string) error {
+	var urlSettingsKeys = fmt.Sprintf("https://%s/settings/keys", hostname)
+
+	fmt.Printf(`
+Authorise SSH Key for SSO (manual instructions)
+-----------------------------------------------
+
+1. Press Enter to open %s
+2. %s
+3. Return here and press Enter to continue
+`, urlSettingsKeys, configureSSOInstruction)
+	// wait for Enter Key
+	if _, err := fmt.Scanln(); err != nil {
+		return err
+	}
+	if err := openBrowser(urlSettingsKeys); err != nil {
+		return err
+	}
+	_, err := fmt.Scanln() // wait for Enter Key
+	return err
+}
+
+func openBrowser(url string) error {
 	var open string
 	switch runtime.GOOS {
 	case "windows":
@@ -403,13 +451,10 @@ Add new SSH Key (manual instructions)
 	default:
 		open = "xdg-open"
 	}
-	if _, err := exec.LookPath(open); err == nil {
-		err = exec.Command(open, urlSettingSSHNew).Run()
-		if err != nil {
-			return err
-		}
+	_, err := exec.LookPath(open)
+	if err == nil {
+		err = exec.Command(open, url).Run()
 	}
-	_, err = fmt.Scanln() // wait for Enter Key
 	return err
 }
 

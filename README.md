@@ -107,6 +107,7 @@ Flags:
   -h, --hostname string   GitHub hostname (default "github.com")
   -k, --keyfile string    Private key file (default "~/.ssh/[hostname]")
   -r, --rotate            Rotate existing key (if any)
+  -s, --sso               Prompt to authorise the key for organisations using SAML SSO
 
 Global Flags:
       --help   Show help for command
