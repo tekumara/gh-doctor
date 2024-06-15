@@ -120,11 +120,10 @@ func ensureSSH(opts *SSHOptions) error {
 			}
 		}
 
-		// TODO: ensure this works if the file has already been deleted
-		if err := os.Remove(keyFile); err != nil {
+		if err := os.Remove(keyFile); err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		if err := os.Remove(keyFile + ".pub"); err != nil {
+		if err := os.Remove(keyFile + ".pub"); err != nil  && !os.IsNotExist(err) {
 			return err
 		}
 		fmt.Println("ℹ Deleted existing key.")
