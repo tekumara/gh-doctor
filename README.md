@@ -1,6 +1,6 @@
 # GitHub Doctor
 
-GitHub Doctor creates SSH keys and optionally uploads them to your account. It can also rotate existing keys.
+GitHub Doctor creates an SSH key and config and optionally uploads the key to your account. It can also rotate existing keys.
 
 Commands are idempotent and can be re-run, making GitHub Doctor easy to use in scripts and useful for repairing misconfigurations.
 
