@@ -120,6 +120,7 @@ func ensureSSH(opts *SSHOptions) error {
 			}
 		}
 
+		// TODO: overwrite rather than delete
 		if err := os.Remove(keyFile); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -412,7 +413,8 @@ Add new SSH Key (manual instructions)
 		return err
 	}
 	if err := openBrowser(urlSettingsSSHNew); err != nil {
-		return err
+		fmt.Printf("Warning: failed to open browser automatically: %v\n", err)
+		fmt.Printf("Please open the above URL manually in your browser.\n")
 	}
 	_, err = fmt.Scanln() // wait for Enter Key
 	return err
@@ -434,27 +436,24 @@ Authorise SSH Key for SSO (manual instructions)
 		return err
 	}
 	if err := openBrowser(urlSettingsKeys); err != nil {
-		return err
+		fmt.Printf("Warning: failed to open browser automatically: %v\n", err)
+		fmt.Printf("Please open the above URL manually in your browser.\n")
 	}
 	_, err := fmt.Scanln() // wait for Enter Key
 	return err
 }
 
 func openBrowser(url string) error {
-	var open string
+	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		open = "start"
+		cmd = exec.Command("cmd", "/c", "start", url)
 	case "darwin":
-		open = "open"
+		cmd = exec.Command("open", url)
 	default:
-		open = "xdg-open"
+		cmd = exec.Command("xdg-open", url)
 	}
-	_, err := exec.LookPath(open)
-	if err == nil {
-		err = exec.Command(open, url).Run()
-	}
-	return err
+	return cmd.Run()
 }
 
 // upsert ssh config with host to use keyfile

@@ -9,7 +9,7 @@ Commands are idempotent and can be re-run, making GitHub Doctor easy to use in s
 Using homebrew:
 
 ```sh
- brew install tekumara/tap/gh-doctor
+brew install tekumara/tap/gh-doctor
 ```
 
 As a [GitHub CLI](https://github.com/cli/cli) extension:

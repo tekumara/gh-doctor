@@ -3,16 +3,16 @@ module github.com/tekumara/gh-doctor
 go 1.22.3
 
 require (
+	github.com/atotto/clipboard v0.1.4
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/crypto v0.23.0
+	golang.org/x/oauth2 v0.20.0
 )
 
 require (
-	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	golang.org/x/oauth2 v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 )
 

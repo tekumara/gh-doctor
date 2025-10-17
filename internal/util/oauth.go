@@ -42,6 +42,19 @@ var html = `<!DOCTYPE html>
 </body>
 </html>`
 
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Run()
+}
+
 func FetchToken(ctx context.Context) (*oauth2.Token, error) {
 	state := oauth2.GenerateVerifier()
 	queries := make(chan url.Values)
@@ -60,21 +73,10 @@ func FetchToken(ctx context.Context) (*oauth2.Token, error) {
 	verifier := oauth2.GenerateVerifier()
 	authCodeURL := c.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
 	fmt.Fprintf(os.Stderr, "Please complete authentication in your browser...\n%s\n", authCodeURL)
-	var open string
-	switch runtime.GOOS {
-	case "windows":
-		open = "start"
-	case "darwin":
-		open = "open"
-	default:
-		open = "xdg-open"
-	}
 	// TODO: wait for server to start before opening browser
-	if _, err := exec.LookPath(open); err == nil {
-		err = exec.Command(open, authCodeURL).Run()
-		if err != nil {
-			return nil, err
-		}
+	if err := openBrowser(authCodeURL); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to open browser automatically: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Please open the above URL manually in your browser.\n")
 	}
 	query := <-queries
 	server.Close()
