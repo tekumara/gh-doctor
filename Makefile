@@ -12,7 +12,7 @@ release:
 	goreleaser release --snapshot --skip=publish --clean
 
 ## format
-fmt:
+format:
 	go fmt ./...
 
 ## lint
