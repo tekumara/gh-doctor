@@ -1,17 +1,33 @@
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    # default see https://golangci-lint.run/usage/linters/#enabled-by-default
     - errcheck
-    - gosimple
+    - gocritic
     - govet
     - ineffassign
+    - revive
     - staticcheck
     - unused
-    # non-default
-    - gocritic
-    - revive
-
-linters-settings:
-  govet:
-    enable: [nilness]
+  settings:
+    govet:
+      enable:
+        - nilness
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
