@@ -24,6 +24,11 @@ linters:
       - third_party$
       - builtin$
       - examples$
+    rules:
+      - linters:
+          - revive
+        path: "util/*"
+        text: "var-naming: avoid meaningless package names"
 formatters:
   exclusions:
     generated: lax

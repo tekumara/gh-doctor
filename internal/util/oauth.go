@@ -59,10 +59,11 @@ func FetchToken(ctx context.Context) (*oauth2.Token, error) {
 	state := oauth2.GenerateVerifier()
 	queries := make(chan url.Values)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: consider whether to show errors in browser or command line
 		queries <- r.URL.Query()
 		w.Header().Add("Content-Type", "text/html")
-		w.Write([]byte(html))
+		if _, err := w.Write([]byte(html)); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to write HTML response: %v\n", err)
+		}
 	})
 	var server *httptest.Server
 	c := config

@@ -479,7 +479,8 @@ func updateSSHConfig(sshConfigPath string, keyFile string, hostname string) erro
 	host, identifyFileNode := findHostAndKey(sshConfigPath, cfg, hostname, "IdentityFile")
 
 	var newSSHConfig, msg string
-	if identifyFileNode != nil {
+	switch {
+	case identifyFileNode != nil:
 		if identifyFileNode.Value == keyFile {
 			msg = fmt.Sprintf("✓ Host %s in %s already configured\n", hostname, sshConfigPath)
 		} else {
@@ -487,13 +488,13 @@ func updateSSHConfig(sshConfigPath string, keyFile string, hostname string) erro
 			msg = fmt.Sprintf("✓ Updated Host %s in %s to use key file\n", hostname, sshConfigPath)
 			newSSHConfig = cfg.String()
 		}
-	} else if host != nil {
+	case host != nil:
 		identifyFileNode = &ssh_config.KV{Key: "IdentityFile", Value: keyFile}
 		// prepend to preserve comments/whitespace between hosts
 		host.Nodes = append([]ssh_config.Node{identifyFileNode}, host.Nodes...)
 		newSSHConfig = cfg.String()
 		msg = fmt.Sprintf("✓ Added IdentityFile to Host %s in %s\n", hostname, sshConfigPath)
-	} else { // host == nil
+	default: // host == nil
 		// add new node ourselves as strings rather than a new Node so we can
 		// control indentation see https://github.com/kevinburke/ssh_config/issues/12
 		// and separation
