@@ -93,7 +93,7 @@ Example entry added to ~/.ssh/config:
 
 Host github.com
   AddKeysToAgent yes
-  UseKeychain yes
+  UseKeychain yes  # (macOS only)
   IdentityFile ~/.ssh/github.com
 
 During verification any SSH agent identities are removed in case incorrect keys were loaded.

@@ -8,30 +8,53 @@ import (
 )
 
 func TestUpdateSshConfig(t *testing.T) {
+	// Save original osName and defer restoration
+	originalOsName := osName
+	defer func() { osName = originalOsName }()
 
 	tests := []struct {
 		name              string
+		osName            string
 		sshConfig         string
 		keyFile           string
 		hostname          string
 		expectedSSHConfig string
 	}{
 		{
-			name:              "CreateNewSshConfig",
+			name:              "CreateNewSshConfigMac",
+			osName:            "darwin",
 			sshConfig:         "",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
 			expectedSSHConfig: "Host github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile id_rsa\n",
 		},
 		{
-			name:              "AddHostToExistingSshConfig",
+			name:              "CreateNewSshConfigNonDarwin",
+			osName:            "windows",
+			sshConfig:         "",
+			keyFile:           "id_rsa",
+			hostname:          "github.com",
+			expectedSSHConfig: "Host github.com\n  AddKeysToAgent yes\n  IdentityFile id_rsa\n",
+		},
+		{
+			name:              "AddHostToExistingSshConfigMac",
+			osName:            "darwin",
 			sshConfig:         "Host foo.bar\n  IdentityFile top_secret\n",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
 			expectedSSHConfig: "Host foo.bar\n  IdentityFile top_secret\n\nHost github.com\n  AddKeysToAgent yes\n  UseKeychain yes\n  IdentityFile id_rsa\n",
 		},
 		{
+			name:              "AddHostToExistingSshConfigNonDarwin",
+			osName:            "linux",
+			sshConfig:         "Host foo.bar\n  IdentityFile top_secret\n",
+			keyFile:           "id_rsa",
+			hostname:          "github.com",
+			expectedSSHConfig: "Host foo.bar\n  IdentityFile top_secret\n\nHost github.com\n  AddKeysToAgent yes\n  IdentityFile id_rsa\n",
+		},
+		{
 			name:              "AlreadyExistsNoOp",
+			osName:            "darwin",
 			sshConfig:         "Host github.com\n  IdentityFile id_rsa\n",
 			keyFile:           "id_rsa",
 			hostname:          "github.com",
@@ -40,6 +63,7 @@ func TestUpdateSshConfig(t *testing.T) {
 		{
 			name: "ExistingHostUpdateIdentityFile",
 			// existing ssh config is larger than the new one to test truncate
+			osName:            "darwin",
 			sshConfig:         "Host github.com\n  IdentityFile yeolde.key\n",
 			keyFile:           "new.key",
 			hostname:          "github.com",
@@ -57,6 +81,7 @@ func TestUpdateSshConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			osName = test.osName
 
 			// Create existing config if any
 			var sshConfigPath string
@@ -87,10 +112,10 @@ func TestUpdateSshConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if string(content) != test.expectedSSHConfig {
 				t.Errorf("\ngot  %q\nwant %q", string(content), test.expectedSSHConfig)
 			}
-
 		})
 	}
 

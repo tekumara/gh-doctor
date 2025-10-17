@@ -48,7 +48,7 @@ Example entry added to ~/.ssh/config:
 
 Host github.com
   AddKeysToAgent yes
-  UseKeychain yes
+  UseKeychain yes  # (macOS only)
   IdentityFile ~/.ssh/github.com
 
 During verification any SSH agent identities are removed in case incorrect keys were loaded.
@@ -70,6 +70,9 @@ func init() {
 	sshCmd.Flags().BoolVarP(&sshOpts.Rotate, "rotate", "r", false, "Rotate existing key (if any)")
 	sshCmd.Flags().BoolVarP(&sshOpts.ConfigureSSO, "sso", "s", false, "Prompt to authorise the key for organisations using SAML SSO")
 }
+
+// osName is a variable that can be overridden in tests to mock the OS
+var osName = runtime.GOOS
 
 func hostFlag(opts *SSHOptions) string {
 	hostFlag := ""
@@ -457,7 +460,7 @@ func openBrowser(url string) error {
 }
 
 // upsert ssh config with host to use keyfile
-// when adding a new host, set AddKeysToAgent and UseKeychain to yes
+// when adding a new host, set AddKeysToAgent and UseKeychain to yes (macOS only)
 // as per https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
 func updateSSHConfig(sshConfigPath string, keyFile string, hostname string) error {
 	// open ssh config, creating it if it doesn't exist
@@ -502,11 +505,15 @@ func updateSSHConfig(sshConfigPath string, keyFile string, hostname string) erro
 			// separator new host from previous hosts
 			separator = "\n"
 		}
+		// UseKeychain is macOS-specific and not supported on Windows/Linux
+		useKeychainLine := ""
+		if osName == "darwin" {
+			useKeychainLine = "  UseKeychain yes\n"
+		}
 		newSSHConfig = fmt.Sprintf(`%s%sHost %s
   AddKeysToAgent yes
-  UseKeychain yes
-  IdentityFile %s
-`, cfg.String(), separator, hostname, keyFile)
+%s  IdentityFile %s
+`, cfg.String(), separator, hostname, useKeychainLine, keyFile)
 		msg = fmt.Sprintf("✓ Added Host %s to %s\n", hostname, sshConfigPath)
 	}
 
