@@ -382,8 +382,12 @@ func manualPrompt(hostname string, keyFile string, title string, configureSSO bo
 
 	keyString := string(keyBytes)
 
+	var copiedToClipboard bool
 	if err = clipboard.WriteAll(keyString); err != nil {
-		return err
+		copiedToClipboard = false
+		fmt.Printf("X Warning: failed to copy key to clipboard: %v\n", err)
+	} else {
+		copiedToClipboard = true
 	}
 
 	var urlSettingsSSHNew = fmt.Sprintf("https://%s/settings/ssh/new", hostname)
@@ -398,19 +402,24 @@ func manualPrompt(hostname string, keyFile string, title string, configureSSO bo
 		nextInstructionIndex = 5
 	}
 
+	clipboardInstruction := " (this has been copied to your clipboard)"
+	if !copiedToClipboard {
+		clipboardInstruction = ""
+	}
+
 	fmt.Printf(`
 Add new SSH Key (manual instructions)
 -------------------------------------
 
 1. Press Enter to open %s
 2. In the "Title" field, add a descriptive label for the new key, eg: %s
-3. In the "Key" field, paste the following public key (this has been copied to your clipboard):
+3. In the "Key" field, paste the following public key%s:
 
 %s
 4. Click "Add SSH key"%s
 %d. Delete any old SSH keys
 %d. Return here and press Enter to continue
-`, urlSettingsSSHNew, title, keyString, configureSSOInstructionIndexed, nextInstructionIndex, nextInstructionIndex+1)
+`, urlSettingsSSHNew, title, clipboardInstruction, keyString, configureSSOInstructionIndexed, nextInstructionIndex, nextInstructionIndex+1)
 	// wait for Enter Key
 	if _, err = fmt.Scanln(); err != nil {
 		return err
