@@ -35,6 +35,24 @@ brews:
     homepage: https://github.com/tekumara/gh-doctor
     description: GitHub Doctor creates SSH keys and uploads them to your account
 
+winget:
+  - name: gh-doctor
+    publisher: tekuamra
+    short_description: GitHub Doctor creates SSH keys and uploads them to your account
+    license: MIT
+    homepage: https://github.com/tekumara/gh-doctor
+    repository:
+      owner: tekumara
+      name: winget-pkgs
+      token: "{{ .Env.TAP_REPO_TOKEN }}"
+      branch: "{{.ProjectName}}-{{.Version}}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+
 changelog:
   sort: asc
   filters:
