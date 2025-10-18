@@ -6,10 +6,16 @@ Commands are idempotent and can be re-run, making GitHub Doctor easy to use in s
 
 ## Install
 
-Using homebrew:
+Using homebrew (macOS):
 
 ```sh
 brew install tekumara/tap/gh-doctor
+```
+
+Using winget (Windows):
+
+```sh
+winget install --id=tekumara.gh-doctor  -e
 ```
 
 As a [GitHub CLI](https://github.com/cli/cli) extension:
@@ -17,6 +23,8 @@ As a [GitHub CLI](https://github.com/cli/cli) extension:
 ```sh
 gh extension install tekumara/gh-doctor
 ```
+
+Or [direct download](https://github.com/tekumara/gh-doctor/releases) (Linux).
 
 ## Usage
 

@@ -21,7 +21,7 @@ builds:
 
 archives:
   # gh cli expects binaries
-  - format: binary
+  - formats: ['binary']
     # generate name compatible with gh cli
     name_template: >-
       {{ .Binary }}-{{ .Os }}-{{ .Arch }}
@@ -37,7 +37,9 @@ brews:
 
 winget:
   - name: gh-doctor
-    publisher: tekuamra
+    # NB: we must manually set PackageName in the winget PR to Github Doctor
+    # see https://github.com/orgs/goreleaser/discussions/6197
+    publisher: tekumara
     short_description: GitHub Doctor creates SSH keys and uploads them to your account
     license: MIT
     homepage: https://github.com/tekumara/gh-doctor
