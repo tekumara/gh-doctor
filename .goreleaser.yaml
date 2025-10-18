@@ -30,7 +30,7 @@ brews:
   - repository:
       owner: tekumara
       name: homebrew-tap
-      token: "{{ .Env.TAP_REPO_TOKEN }}"
+      token: "{{ .Env.WRITE_REPO_TOKEN }}"
     directory: Formula
     homepage: https://github.com/tekumara/gh-doctor
     description: GitHub Doctor creates SSH keys and uploads them to your account
@@ -44,7 +44,7 @@ winget:
     repository:
       owner: tekumara
       name: winget-pkgs
-      token: "{{ .Env.TAP_REPO_TOKEN }}"
+      token: "{{ .Env.WRITE_REPO_TOKEN }}"
       branch: "{{.ProjectName}}-{{.Version}}"
       pull_request:
         enabled: true

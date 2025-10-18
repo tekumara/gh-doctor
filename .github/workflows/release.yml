@@ -16,8 +16,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: fetch tap repo token
-        id: tap-repo-token
+      - name: fetch write repo token
+        id: write-repo-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ vars.APP_ID }}
@@ -29,4 +29,4 @@ jobs:
           args: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_REPO_TOKEN: ${{ steps.tap-repo-token.outputs.token }}
+          WRITE_REPO_TOKEN: ${{ steps.write-repo-token.outputs.token }}
